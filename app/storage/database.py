@@ -40,7 +40,8 @@ def set_tenant_context(session: Session, tenant_id: UUID) -> None:
 def get_session() -> Generator[Session, None, None]:
     """Yield a request-scoped session and always close it."""
     with _default_session_factory()() as session:
-        yield session
+        with session.begin():
+            yield session
 
 
 __all__ = ["Base", "build_engine", "build_session_factory", "get_session", "set_tenant_context"]
