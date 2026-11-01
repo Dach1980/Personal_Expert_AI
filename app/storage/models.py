@@ -38,8 +38,9 @@ class Tenant(Base, TimestampMixin):
 
 class User(Base, TimestampMixin):
     __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("login", name="uq_users_login"),)
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    login: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    login: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(200))
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
 
