@@ -21,6 +21,7 @@ CONSTRAINTS = [
     "ALTER TABLE document_versions ADD CONSTRAINT uq_document_versions_parent UNIQUE (tenant_id, project_id, document_id, id)",
     "ALTER TABLE document_versions ADD CONSTRAINT fk_document_versions_project_tenant FOREIGN KEY (tenant_id, project_id) REFERENCES projects (tenant_id, id)",
     "ALTER TABLE document_versions ADD CONSTRAINT fk_document_versions_document_parent FOREIGN KEY (tenant_id, project_id, document_id) REFERENCES documents (tenant_id, project_id, id)",
+    "ALTER TABLE document_versions ADD CONSTRAINT fk_document_versions_uploader_tenant FOREIGN KEY (tenant_id, uploaded_by) REFERENCES memberships (tenant_id, user_id)",
     "ALTER TABLE documents DROP CONSTRAINT fk_documents_current_version",
     "ALTER TABLE documents ADD CONSTRAINT fk_documents_current_version_parent FOREIGN KEY (tenant_id, project_id, id, current_version_id) REFERENCES document_versions (tenant_id, project_id, document_id, id)",
     "ALTER TABLE processing_runs ADD CONSTRAINT uq_processing_runs_parent UNIQUE (tenant_id, project_id, id)",
@@ -36,10 +37,15 @@ CONSTRAINTS = [
     "ALTER TABLE knowledge_items ADD CONSTRAINT fk_knowledge_items_project_tenant FOREIGN KEY (tenant_id, project_id) REFERENCES projects (tenant_id, id)",
     "ALTER TABLE knowledge_assertions ADD CONSTRAINT fk_assertions_item_parent FOREIGN KEY (tenant_id, project_id, knowledge_item_id) REFERENCES knowledge_items (tenant_id, project_id, id)",
     "ALTER TABLE knowledge_assertions ADD CONSTRAINT fk_assertions_fragment_parent FOREIGN KEY (tenant_id, project_id, source_fragment_id) REFERENCES source_fragments (tenant_id, project_id, id)",
+    "ALTER TABLE knowledge_assertions ADD CONSTRAINT fk_assertions_reviewer_tenant FOREIGN KEY (tenant_id, reviewed_by) REFERENCES memberships (tenant_id, user_id)",
     "ALTER TABLE conversations ADD CONSTRAINT uq_conversations_tenant_id UNIQUE (tenant_id, id)",
     "ALTER TABLE conversations ADD CONSTRAINT fk_conversations_project_tenant FOREIGN KEY (tenant_id, project_id) REFERENCES projects (tenant_id, id)",
+    "ALTER TABLE conversations ADD CONSTRAINT fk_conversations_owner_tenant FOREIGN KEY (tenant_id, owner_user_id) REFERENCES memberships (tenant_id, user_id)",
     "ALTER TABLE messages ADD CONSTRAINT fk_messages_conversation_tenant FOREIGN KEY (tenant_id, conversation_id) REFERENCES conversations (tenant_id, id)",
     "ALTER TABLE memory_entries ADD CONSTRAINT fk_memory_entries_project_tenant FOREIGN KEY (tenant_id, project_id) REFERENCES projects (tenant_id, id)",
+    "ALTER TABLE memory_entries ADD CONSTRAINT fk_memory_entries_owner_tenant FOREIGN KEY (tenant_id, owner_user_id) REFERENCES memberships (tenant_id, user_id)",
+    "ALTER TABLE memory_entries ADD CONSTRAINT fk_memory_entries_confirmer_tenant FOREIGN KEY (tenant_id, confirmed_by) REFERENCES memberships (tenant_id, user_id)",
+    "ALTER TABLE audit_events ADD CONSTRAINT fk_audit_events_actor_tenant FOREIGN KEY (tenant_id, actor_user_id) REFERENCES memberships (tenant_id, user_id)",
 ]
 
 RLS_TABLES = [
@@ -82,10 +88,15 @@ def downgrade() -> None:
     op.execute("ALTER TABLE tenants DISABLE ROW LEVEL SECURITY")
 
     for statement in [
+        ("audit_events", "fk_audit_events_actor_tenant"),
+        ("memory_entries", "fk_memory_entries_confirmer_tenant"),
+        ("memory_entries", "fk_memory_entries_owner_tenant"),
         ("memory_entries", "fk_memory_entries_project_tenant"),
         ("messages", "fk_messages_conversation_tenant"),
+        ("conversations", "fk_conversations_owner_tenant"),
         ("conversations", "fk_conversations_project_tenant"),
         ("conversations", "uq_conversations_tenant_id"),
+        ("knowledge_assertions", "fk_assertions_reviewer_tenant"),
         ("knowledge_assertions", "fk_assertions_fragment_parent"),
         ("knowledge_assertions", "fk_assertions_item_parent"),
         ("knowledge_items", "fk_knowledge_items_project_tenant"),
@@ -100,6 +111,7 @@ def downgrade() -> None:
         ("processing_runs", "fk_processing_runs_project_tenant"),
         ("processing_runs", "uq_processing_runs_parent"),
         ("documents", "fk_documents_current_version_parent"),
+        ("document_versions", "fk_document_versions_uploader_tenant"),
         ("document_versions", "fk_document_versions_document_parent"),
         ("document_versions", "fk_document_versions_project_tenant"),
         ("document_versions", "uq_document_versions_parent"),
