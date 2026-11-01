@@ -1,13 +1,26 @@
 # План разработки
 
-## Фаза 0. Исследование и фиксация архитектуры
+## Фаза 0. Архитектурное исследование — выполнено 2026-11-01
 
-- [ ] Проверить текущее состояние и лицензии AnythingLLM.
-- [ ] Проверить LM Studio API: chat completions, tool calling, embeddings и ограничения контекста.
-- [ ] Изучить память, Skills и безопасность Hermes Agent.
-- [ ] Описать варианты интеграции AnythingLLM с собственным backend.
-- [ ] Составить матрицу локальности: какие данные и при каких условиях покидают машину.
-- [ ] Зафиксировать ADR по UI, БД, векторному поиску и модели памяти.
+- [x] Проверить текущее состояние и возможности AnythingLLM.
+- [x] Проверить LM Studio API: chat, tool calling, embeddings и управление моделями.
+- [x] Изучить память, Skills и безопасность Hermes Agent.
+- [x] Описать варианты интеграции AnythingLLM с собственным backend.
+- [x] Составить предварительную матрицу локальности и сетевых рисков.
+- [x] Оценить Bionic как дополнительную агентную среду.
+- [x] Изучить архитектуру существующего Project Expert AI и определить переносимые контракты.
+- [x] Подготовить сравнительное архитектурное исследование: `docs/research/ARCHITECTURE_RESEARCH_2026-11-01.md`.
+
+Результат фазы: предварительно выбраны собственный FastAPI backend, LM Studio как первый локальный runtime, Project Expert AI как инженерное ядро; AnythingLLM оставлен кандидатом на UI-прототип; Hermes — источником идей Memory/Skills; Bionic — экспериментальной desktop-средой. Окончательный выбор UI, vector store и graph store не сделан до прототипов.
+
+## Фаза 0.1. Проверочные прототипы
+
+- [ ] P0 — LM Studio: chat, vision, embeddings, tool calling, streaming, auth, concurrency, model loading.
+- [ ] P1 — AnythingLLM Docker: LM Studio connection, workspace ACL, API, citations, deletion, container privileges, network traffic.
+- [ ] P2 — сравнение ingestion: AnythingLLM против Project Expert AI на одном обезличенном комплекте документов.
+- [ ] P3 — Memory/Skills: user/project/session scopes, FTS, semantic recall, approval, versioning, deletion.
+- [ ] P4 — end-to-end интеграция одного проверочного кейса ВК с regression benchmark.
+- [ ] P5 — multi-user isolation: документы, индексы, память, история, логи, кэши и артефакты.
 
 ## Фаза 1. Минимальный backend
 
