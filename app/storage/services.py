@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
-from app.storage.models import Document, Project, Tenant
+from app.storage.models import Document, Project, Tenant, Workspace
 from app.storage.repositories import DocumentRepository, ProjectRepository, TenantRepository
 
 
@@ -89,6 +89,15 @@ class ProjectService:
         membership = self.tenants.active_membership(tenant_id, user_id)
         if membership is None or membership.role not in self.TENANT_ADMIN_ROLES:
             raise AccessDeniedError("Tenant administrator role is required to create projects")
+        if workspace_id is not None:
+            from sqlalchemy import select
+            workspace = self.session.scalar(
+                select(Workspace).where(
+                    Workspace.id == workspace_id, Workspace.tenant_id == tenant_id
+                )
+            )
+            if workspace is None:
+                raise ResourceNotFoundError("Workspace not found in tenant")
         project = Project(
             id=uuid4(), tenant_id=tenant_id, workspace_id=workspace_id,
             code=code, name=name, description=description, status="active",
@@ -110,9 +119,12 @@ class DocumentService:
     def __init__(self, session: Session) -> None:
         self.session = session
         self.projects = ProjectRepository(session)
+        self.tenants = TenantRepository(session)
         self.documents = DocumentRepository(session)
 
     def _require_project_access(self, tenant_id: UUID, project_id: UUID, user_id: UUID) -> None:
+        if self.tenants.active_membership(tenant_id, user_id) is None:
+            raise ResourceNotFoundError("Project not found")
         if self.projects.active_membership(tenant_id, project_id, user_id) is None:
             # Do not reveal whether an inaccessible project exists.
             raise ResourceNotFoundError("Project not found")
