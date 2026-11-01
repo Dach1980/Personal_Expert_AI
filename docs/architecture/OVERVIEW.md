@@ -28,6 +28,14 @@ Personal Expert AI — локально развёртываемая платф�
 | [MEMORY_ENGINE.md](MEMORY_ENGINE.md) | Области памяти, жизненный цикл записей, Skills и инструменты |
 | [SECURITY_MODEL.md](SECURITY_MODEL.md) | Модель угроз, tenant isolation, local-only и аудит |
 | [LLM_PROVIDER_ARCHITECTURE.md](LLM_PROVIDER_ARCHITECTURE.md) | Provider adapters, capabilities, manifests и LM Studio |
+| [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) | Физическая схема PostgreSQL, ограничения и индексы |
+| [erd.mmd](erd.mmd) | ERD начального реляционного ядра |
+
+## Реализация слоя данных
+
+Начальная реализация находится в app/storage: SQLAlchemy 2.x models, engine/session helpers и Alembic migrations. Она охватывает tenants/users/memberships, workspaces/projects, документы и версии, processing runs/artifacts, source fragments, knowledge items/assertions, conversations/messages, memory и audit events.
+
+Это первый слой схемы, а не полная реализация всех доменных сущностей. Skills, инженерные проверки, нормативный каталог и graph relations добавляются следующими миграциями. До эксплуатации необходимо проверить миграции на чистой PostgreSQL, добавить tenant-consistency composite foreign keys и пройти тесты изоляции.
 
 ## Ключевые доменные сущности
 
