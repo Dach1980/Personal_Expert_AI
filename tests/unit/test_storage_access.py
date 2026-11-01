@@ -60,3 +60,11 @@ def test_project_service_rejects_non_admin_project_creation() -> None:
     service = ProjectService(session)
     with pytest.raises(AccessDeniedError):
         service.create(uuid4(), uuid4(), name="Restricted project")
+
+
+def test_document_service_rejects_viewer_document_creation() -> None:
+    session = Mock()
+    session.scalar.return_value = Mock(role="viewer")
+    service = DocumentService(session)
+    with pytest.raises(AccessDeniedError):
+        service.create(uuid4(), uuid4(), uuid4(), title="Should not be created")
