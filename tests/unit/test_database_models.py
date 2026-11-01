@@ -1,4 +1,4 @@
-from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKeyConstraint, UniqueConstraint
 
 import app.storage.models  # noqa: F401
 from app.storage.models import Base
@@ -24,13 +24,22 @@ def test_document_versions_have_immutable_storage_identity() -> None:
     )
 
 
-def test_document_current_version_references_a_version() -> None:
+def test_document_current_version_is_scoped_to_its_document() -> None:
     table = Base.metadata.tables["documents"]
-    column = table.columns["current_version_id"]
     assert any(
-        isinstance(item, ForeignKey) and item.target_fullname == "document_versions.id"
-        for item in column.foreign_keys
+        isinstance(item, ForeignKeyConstraint)
+        and item.name == "fk_documents_current_version_parent"
+        and [column.name for column in item.columns]
+        == ["tenant_id", "project_id", "id", "current_version_id"]
+        for item in table.constraints
     )
+
+
+def test_project_membership_is_tenant_scoped() -> None:
+    table = Base.metadata.tables["project_memberships"]
+    names = {item.name for item in table.constraints if isinstance(item, ForeignKeyConstraint)}
+    assert "fk_project_memberships_project_tenant" in names
+    assert "fk_project_memberships_tenant_member" in names
 
 
 def test_assertions_constrain_confidence() -> None:
