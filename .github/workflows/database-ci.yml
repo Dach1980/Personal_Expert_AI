@@ -1,0 +1,52 @@
+name: Database integrity
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  postgres-16:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: personal_expert
+          POSTGRES_USER: personal_expert
+          POSTGRES_PASSWORD: personal_expert
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U personal_expert -d personal_expert"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql+psycopg://personal_expert:personal_expert@localhost:5432/personal_expert
+      JWT_SECRET: ci-only-secret-key-that-is-at-least-32-characters
+      JWT_ISSUER: personal-expert-ai-ci
+      JWT_AUDIENCE: personal-expert-ai
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: pip install -e ".[database,dev]"
+      - name: Upgrade to head
+        run: alembic upgrade head
+      - name: Check ORM and database schema parity
+        run: |
+          alembic check
+          pytest tests/integration -q
+      - name: Downgrade to base
+        run: alembic downgrade base
+      - name: Re-upgrade to head
+        run: alembic upgrade head
+      - name: Full test suite
+        run: pytest -q
+      - name: Lint
+        run: ruff check app migrations tests
