@@ -191,3 +191,29 @@ The metadata check emitted a SQLAlchemy warning about the intentional circular d
 - The schema inventory test checks table and column names; `alembic check` supplies additional metadata comparison. A broader catalog-level assertion for every FK, index, check and delete action is still desirable.
 - RLS is enabled on the initial tenant-owned tables; `users` remains a global identity table and must only be queried through authenticated identity-specific paths.
 - Before production, add integration tests for every composite FK family, token revocation/rotation, membership changes, and all API authorization roles.
+
+
+## Final verification — successful PostgreSQL 16 CI
+
+The GitHub Actions run for code commit `ff011d5` completed successfully:
+
+- PostgreSQL 16 service initialized successfully.
+- `alembic upgrade head` — passed.
+- `alembic check` — passed; no new upgrade operations detected.
+- PostgreSQL integration tests — **4 passed**.
+- `alembic downgrade base` — passed.
+- `alembic upgrade head` after downgrade — passed.
+- Full test suite — **20 passed**.
+- Ruff lint — passed.
+
+Workflow: https://github.com/Dach1980/Personal_Expert_AI/actions/runs/41316840233
+
+The two expected integrity errors printed by PostgreSQL during tests are deliberate negative tests: one attempts to attach a document to another tenant's project; the other attempts to attach a document version to a document in another project. Both operations were rejected by their composite foreign keys.
+
+The workflow ran against PostgreSQL 16 and used a separate `app_runtime` role with neither table ownership nor SUPERUSER/BYPASSRLS. The two subsequent commits `b66c8b1` and `f68b1eb` only add runtime-role documentation and a README link; they do not change application or migration code.
+
+## Audit conclusion
+
+The initial relational foundation and its tenant/project integrity controls have now passed automated PostgreSQL 16 migration, schema-parity, integration, unit-test and lint checks.
+
+This is a verified development baseline, not a claim that every production security requirement is complete. Before real multi-user deployment, connect a trusted identity provider, provision a separate runtime DB role using [POSTGRES_RUNTIME_ROLE.md](../development/POSTGRES_RUNTIME_ROLE.md), and expand adversarial authorization tests as new API endpoints and data entities are added.
