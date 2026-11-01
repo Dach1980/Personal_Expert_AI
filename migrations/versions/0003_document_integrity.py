@@ -11,6 +11,7 @@ depends_on = None
 
 
 def upgrade() -> None:
+    op.execute("ALTER TABLE document_versions DROP CONSTRAINT ck_document_versions_size_nonnegative")
     op.execute("""
         ALTER TABLE document_versions
         ADD CONSTRAINT ck_document_versions_size_positive CHECK (size_bytes > 0)
@@ -69,6 +70,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute("DROP TRIGGER IF EXISTS tr_document_versions_source_immutable ON document_versions")
     op.execute("DROP FUNCTION IF EXISTS prevent_document_version_source_mutation()")
+    op.execute("ALTER TABLE document_versions ADD CONSTRAINT ck_document_versions_size_nonnegative CHECK (size_bytes >= 0)")
     for constraint in (
         "ck_document_versions_storage_key_nonempty",
         "ck_document_versions_media_type_nonempty",
