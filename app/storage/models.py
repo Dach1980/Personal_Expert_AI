@@ -100,7 +100,7 @@ class ProjectMembership(Base, TimestampMixin):
 
 class Document(Base, TimestampMixin):
     __tablename__ = "documents"
-    __table_args__ = (Index("ix_documents_project_status", "project_id", "status"),)
+    __table_args__ = (Index("ix_documents_project_status", "project_id", "status"), UniqueConstraint("tenant_id", "project_id", "id", name="uq_documents_tenant_project_id"), ForeignKeyConstraint(["tenant_id", "project_id"], ["projects.tenant_id", "projects.id"], name="fk_documents_project_tenant"))
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     tenant_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("tenants.id"), nullable=False)
     project_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("projects.id"), nullable=False)
