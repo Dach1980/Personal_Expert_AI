@@ -204,13 +204,15 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    ddl = """
-        ALTER TABLE IF EXISTS documents DROP CONSTRAINT IF EXISTS fk_documents_current_version;
-        DROP TABLE IF EXISTS audit_events, memory_entries, messages, conversations,
-            knowledge_assertions, knowledge_items, source_fragments, processing_artifacts,
-            processing_runs, document_versions, documents, project_memberships,
-            projects, workspaces, memberships, users, tenants CASCADE;
-    """
-    for statement in ddl.split(";"):
-        if statement.strip():
-            op.execute(statement)
+    # Drop in reverse dependency order. Deliberately avoid CASCADE so that
+    # unexpected external dependencies cause a visible migration failure.
+    tables = [
+        "audit_events", "memory_entries", "messages", "conversations",
+        "knowledge_assertions", "knowledge_items", "source_fragments",
+        "processing_artifacts", "processing_runs", "document_versions",
+        "documents", "project_memberships", "projects", "workspaces",
+        "memberships", "users", "tenants",
+    ]
+    op.execute("ALTER TABLE documents DROP CONSTRAINT IF EXISTS fk_documents_current_version")
+    for table in tables:
+        op.execute(f"DROP TABLE IF EXISTS {table}")
