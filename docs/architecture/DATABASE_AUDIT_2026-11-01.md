@@ -155,3 +155,39 @@ Updated status:
 | PostgreSQL RLS | Not implemented |
 | PostgreSQL migration lifecycle tests | Not implemented |
 | ORM-to-live-schema parity test | Not implemented |
+
+
+## Follow-up implementation and CI evidence
+
+After the initial source review, the following changes were committed to `main`:
+
+- Added `0002_tenant_isolation`: composite candidate keys and foreign keys enforce tenant/project consistency across workspaces, projects, project memberships, documents, versions, processing runs/artifacts, source fragments, knowledge items/assertions, conversations/messages and project memory.
+- Replaced the unscoped current-version FK with a composite FK tying the selected version to the same tenant, project and document.
+- Enabled and forced RLS for tenant-owned tables and the tenants table. RLS uses transaction-local `app.tenant_id`.
+- Added `set_tenant_context` and transaction-scoped request sessions with commit on success and rollback on exception.
+- Removed `CASCADE` from the initial migration downgrade.
+- Added JWT verification and authenticated Tenant/Project/Document endpoints. Tokens are expected from an external trusted issuer; token issuance/password lifecycle is not implemented.
+- Added PostgreSQL 16 GitHub Actions CI with a non-owner, non-superuser, `NOBYPASSRLS` runtime test role.
+- Added PostgreSQL integration tests for RLS visibility, cross-tenant FK rejection and ORM/database table-column inventory.
+
+### Observed CI result (run for commit `ca4cd6e`)
+
+The following steps completed successfully on PostgreSQL 16:
+- Alembic upgrade to head;
+- `alembic check` — no new upgrade operations detected;
+- PostgreSQL integration tests — 3 passed;
+- Alembic downgrade to base;
+- Alembic re-upgrade to head.
+
+The full test suite initially stopped during collection because the installed Starlette TestClient now requires the `httpx2` package. That dependency has been added to the development extras; a new workflow run is required to confirm the full suite and lint.
+
+The metadata check emitted a SQLAlchemy warning about the intentional circular dependency between `documents` and `document_versions`. PostgreSQL migration execution succeeds because the initial migration creates both tables and adds the current-version constraint afterward. This warning should be addressed in a later ORM relationship/metadata cleanup, but it did not produce an Alembic diff.
+
+### Remaining security/operational caveats
+
+- A trusted identity provider must issue JWTs with the configured issuer/audience and claims. The application does not yet provide user registration, password storage, refresh tokens or token issuance.
+- Production runtime DB credentials must be a separate non-owner role without SUPERUSER/BYPASSRLS. Never run the API as the migration owner or a superuser.
+- The current CI tests prove representative cross-tenant isolation and schema inventory, not every possible endpoint/operation or all 17-table adversarial combinations.
+- The schema inventory test checks table and column names; `alembic check` supplies additional metadata comparison. A broader catalog-level assertion for every FK, index, check and delete action is still desirable.
+- RLS is enabled on the initial tenant-owned tables; `users` remains a global identity table and must only be queried through authenticated identity-specific paths.
+- Before production, add integration tests for every composite FK family, token revocation/rotation, membership changes, and all API authorization roles.
