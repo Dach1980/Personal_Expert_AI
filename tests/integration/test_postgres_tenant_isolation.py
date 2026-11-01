@@ -58,8 +58,8 @@ def test_composite_fk_rejects_cross_tenant_document(connection):
     with connection.begin():
         _tenant(connection, tenant_b)
         with pytest.raises(IntegrityError):
-            connection.execute(
-                text("INSERT INTO documents (id, tenant_id, project_id, title, status) VALUES (:id, :tenant, :project, 'cross-tenant', 'active')"),
-                {"id": uuid4(), "tenant": tenant_b, "project": project_a},
-            )
-        connection.rollback()
+            with connection.begin_nested():
+                connection.execute(
+                    text("INSERT INTO documents (id, tenant_id, project_id, title, status) VALUES (:id, :tenant, :project, 'cross-tenant', 'active')"),
+                    {"id": uuid4(), "tenant": tenant_b, "project": project_a},
+                )
