@@ -17,7 +17,7 @@ def test_initial_domain_tables_are_registered() -> None:
 
 def test_document_versions_have_immutable_storage_identity() -> None:
     table = Base.metadata.tables["document_versions"]
-    assert {"checksum_sha256", "storage_key", "document_id", "project_id"} <= set(table.columns)
+    assert {"checksum_sha256", "storage_key", "document_id", "project_id"} <= set(table.columns.keys())
     assert any(
         isinstance(item, UniqueConstraint) and "storage_key" in [c.name for c in item.columns]
         for item in table.constraints
