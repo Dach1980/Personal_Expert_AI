@@ -9,7 +9,6 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO, Iterable
-from uuid import UUID
 
 
 _STORAGE_KEY_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,499}$")
@@ -128,6 +127,8 @@ class LocalFileStore:
 
     @staticmethod
     def _fsync_directory(path: Path) -> None:
+        if os.name == "nt":
+            return
         descriptor = os.open(path, os.O_RDONLY)
         try:
             os.fsync(descriptor)
