@@ -48,3 +48,18 @@ def test_assertions_constrain_confidence() -> None:
         isinstance(item, CheckConstraint) and "confidence" in str(item.sqltext)
         for item in table.constraints
     )
+
+
+
+def test_document_version_metadata_has_integrity_constraints() -> None:
+    table = Base.metadata.tables["document_versions"]
+    checks = {
+        item.name: str(item.sqltext)
+        for item in table.constraints
+        if isinstance(item, CheckConstraint)
+    }
+    assert "ck_document_versions_size_positive" in checks
+    assert "ck_document_versions_checksum_sha256" in checks
+    assert "ck_document_versions_filename_nonempty" in checks
+    assert "ck_document_versions_media_type_nonempty" in checks
+    assert "ck_document_versions_storage_key_nonempty" in checks
