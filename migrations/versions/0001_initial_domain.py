@@ -13,7 +13,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute("""
+    ddl = """
         CREATE TABLE tenants (
             id UUID PRIMARY KEY, name VARCHAR(200) NOT NULL,
             status VARCHAR(20) NOT NULL,
@@ -197,14 +197,20 @@ def upgrade() -> None:
         );
         CREATE INDEX ix_audit_events_tenant_created ON audit_events(tenant_id, created_at);
         CREATE INDEX ix_audit_events_target ON audit_events(target_type, target_id);
-    """)
+    """
+    for statement in ddl.split(";"):
+        if statement.strip():
+            op.execute(statement)
 
 
 def downgrade() -> None:
-    op.execute("""
+    ddl = """
         ALTER TABLE IF EXISTS documents DROP CONSTRAINT IF EXISTS fk_documents_current_version;
         DROP TABLE IF EXISTS audit_events, memory_entries, messages, conversations,
             knowledge_assertions, knowledge_items, source_fragments, processing_artifacts,
             processing_runs, document_versions, documents, project_memberships,
             projects, workspaces, memberships, users, tenants CASCADE;
-    """)
+    """
+    for statement in ddl.split(";"):
+        if statement.strip():
+            op.execute(statement)
