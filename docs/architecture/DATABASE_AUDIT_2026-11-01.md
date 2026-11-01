@@ -134,3 +134,24 @@ Not verified:
 | Repository/service isolation | Not implemented at audit start |
 | Cross-project/cross-tenant tests | Not implemented at audit start |
 | RLS | Not implemented |
+
+## Work completed after the source audit
+
+The following first-pass application-layer components have now been added on `main`:
+
+- `app/storage/repositories.py`: tenant, project and document repositories. Scoped lookups require tenant ID; document lookups additionally require project ID.
+- `app/storage/services.py`: tenant, project and document services. Access checks require active tenant membership and, for project/document access, active project membership. Project creation requires a tenant owner/admin role. Optional workspace assignment is checked against the same tenant.
+- `tests/unit/test_storage_access.py`: SQL-scope assertions and service-level denial tests for missing membership and insufficient tenant role.
+
+These are an initial application-layer guard, not a substitute for database composite constraints/RLS. They have not yet been executed in a Python environment in this session. The project service is not yet wired to HTTP routes or an authentication dependency; callers must pass a trusted authenticated user ID, never a user ID supplied by an untrusted request body.
+
+Updated status:
+| Item | Status |
+|---|---|
+| Tenant/Project/Document repositories | Implemented, runtime tests not run |
+| Tenant/Project/Document services | Implemented, runtime tests not run |
+| Scoped access unit tests | Added, runtime tests not run |
+| Composite tenant/project foreign keys | Not implemented |
+| PostgreSQL RLS | Not implemented |
+| PostgreSQL migration lifecycle tests | Not implemented |
+| ORM-to-live-schema parity test | Not implemented |
