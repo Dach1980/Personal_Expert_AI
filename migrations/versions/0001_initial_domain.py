@@ -109,9 +109,10 @@ def upgrade() -> None:
             id UUID PRIMARY KEY, tenant_id UUID NOT NULL REFERENCES tenants(id),
             project_id UUID NOT NULL REFERENCES projects(id),
             processing_run_id UUID NOT NULL REFERENCES processing_runs(id),
-            artifact_type VARCHAR(100) NOT NULL, storage_key VARCHAR(500) NOT NULL UNIQUE,
+            artifact_type VARCHAR(100) NOT NULL, storage_key VARCHAR(500) NOT NULL,
             checksum_sha256 VARCHAR(64), media_type VARCHAR(150), size_bytes BIGINT,
-            metadata JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            metadata JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            CONSTRAINT uq_processing_artifacts_storage_key UNIQUE (storage_key)
         );
         CREATE TABLE source_fragments (
             id UUID PRIMARY KEY, tenant_id UUID NOT NULL REFERENCES tenants(id),
