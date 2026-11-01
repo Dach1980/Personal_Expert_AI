@@ -74,3 +74,21 @@ Backups шифруются, ограничиваются по доступу и 
 - Проверки admin roles, session expiry, CSRF и rate limits.
 
 Single-user prototype не считается безопасным multi-user продуктом до threat-model review и прохождения этих тестов.
+
+
+## 13. Реализуемый механизм tenant isolation (2026-11-01)
+
+В миграции `0002_tenant_isolation` включены PostgreSQL RLS policies для таблиц с `tenant_id` и для `tenants.id`. Policies используют transaction-local параметр `app.tenant_id`. Включён `FORCE ROW LEVEL SECURITY`, поэтому владелец таблицы также подчиняется policy; superuser и роли с `BYPASSRLS` по-прежнему обходят RLS.
+
+Backend устанавливает контекст через `set_config('app.tenant_id', ..., true)` в текущей транзакции. Значение должно поступать только из проверенного principal, а не из тела запроса. Сессия запроса оборачивается в транзакцию: успешный запрос фиксируется, исключение приводит к rollback. Transaction-local context сбрасывается при завершении транзакции.
+
+HTTP API использует подписанный JWT от доверенного identity provider. Проверяются подпись HS256, issuer, audience, exp, iat, sub и tenant_id. Обязательные настройки:
+- `JWT_SECRET` — секрет не короче 32 символов;
+- `JWT_ISSUER` — ожидаемый issuer;
+- `JWT_AUDIENCE` — ожидаемая audience.
+
+Токен должен содержать UUID пользователя в `sub` и UUID tenant в `tenant_id`. Приложение не выдаёт токены и не реализует регистрацию/пароли: подключение и управление identity provider остаётся отдельной эксплуатационной настройкой. Без JWT-конфигурации защищённые endpoint возвращают 503; без действительного bearer token доступ запрещён.
+
+Runtime DB role обязана быть отдельной ролью PostgreSQL без `SUPERUSER`, без `BYPASSRLS` и не должна владеть таблицами. Миграции выполняются отдельной DDL-ролью. Использование владельца таблиц или superuser как runtime connection разрушает ожидаемую границу RLS.
+
+CI проверяет RLS под отдельной ролью `app_runtime`, не являющейся владельцем таблиц и не имеющей `BYPASSRLS`. Проверки PostgreSQL должны проходить до использования схемы в multi-user окружении.
