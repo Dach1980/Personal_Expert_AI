@@ -119,6 +119,7 @@ class DocumentVersion(Base):
         CheckConstraint("size_bytes >= 0", name="ck_document_versions_size_nonnegative"),
         Index("ix_document_versions_project_checksum", "project_id", "checksum_sha256"),
         Index("ix_document_versions_document_uploaded", "document_id", "uploaded_at"),
+        UniqueConstraint("tenant_id", "project_id", "id", name="uq_document_versions_tenant_project_id"),
         UniqueConstraint("tenant_id", "project_id", "document_id", "id", name="uq_document_versions_parent"),
         ForeignKeyConstraint(["tenant_id", "project_id"], ["projects.tenant_id", "projects.id"], name="fk_document_versions_project_tenant"),
         ForeignKeyConstraint(["tenant_id", "project_id", "document_id"], ["documents.tenant_id", "documents.project_id", "documents.id"], name="fk_document_versions_document_parent"),
@@ -184,6 +185,7 @@ class SourceFragment(Base):
     __table_args__ = (
         Index("ix_source_fragments_version_run", "document_version_id", "processing_run_id"),
         Index("ix_source_fragments_project_type", "project_id", "fragment_type"),
+        UniqueConstraint("tenant_id", "project_id", "id", name="uq_source_fragments_parent"),
         ForeignKeyConstraint(["tenant_id", "project_id"], ["projects.tenant_id", "projects.id"], name="fk_source_fragments_project_tenant"),
         ForeignKeyConstraint(["tenant_id", "project_id", "document_version_id"], ["document_versions.tenant_id", "document_versions.project_id", "document_versions.id"], name="fk_source_fragments_version_parent"),
         ForeignKeyConstraint(["tenant_id", "project_id", "processing_run_id"], ["processing_runs.tenant_id", "processing_runs.project_id", "processing_runs.id"], name="fk_source_fragments_run_parent"),
