@@ -41,6 +41,7 @@
 - [Архитектурный обзор](docs/architecture/OVERVIEW.md)
 - [План разработки](docs/development/ROADMAP.md)
 - [Начальное архитектурное решение ADR 0001](docs/decisions/0001-initial-architecture.md)
+- [Предварительный выбор компонентов ADR 0002](docs/decisions/0002-component-selection.md)
 
 ## Безопасность
 
