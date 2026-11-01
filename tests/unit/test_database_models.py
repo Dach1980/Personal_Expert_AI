@@ -1,7 +1,7 @@
 from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint
 
-from app.storage.models import Base
 import app.storage.models  # noqa: F401
+from app.storage.models import Base
 
 
 def test_initial_domain_tables_are_registered() -> None:
