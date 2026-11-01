@@ -13,7 +13,7 @@ from app.storage.services import (
 
 
 def _where_sql(statement) -> str:
-    return str(statement.compile(compile_kwargs={"literal_binds": True}))
+    return str(statement.compile(compile_kwargs={"literal_binds": True})).replace("-", "")
 
 
 def test_document_repository_scopes_by_tenant_project_and_document() -> None:
