@@ -84,9 +84,9 @@ def test_document_version_cannot_belong_to_another_project_document(connection):
                 connection.execute(
                     text("""INSERT INTO document_versions
                         (id, tenant_id, project_id, document_id, original_filename,
-                         media_type, size_bytes, checksum_sha256, storage_key, status)
+                         media_type, size_bytes, checksum_sha256, storage_key, status, metadata)
                         VALUES (:id, :tenant, :project, :document, 'a.pdf',
-                                'application/pdf', 10, 'abc', :storage, 'uploaded')"""),
+                                'application/pdf', 10, 'abc', :storage, 'uploaded', '{}'::jsonb)"""),
                     {
                         "id": uuid4(), "tenant": tenant_id, "project": project_b,
                         "document": document_a, "storage": f"test/{uuid4()}",
