@@ -124,6 +124,7 @@ class DocumentVersion(Base):
         UniqueConstraint("tenant_id", "project_id", "document_id", "id", name="uq_document_versions_parent"),
         ForeignKeyConstraint(["tenant_id", "project_id"], ["projects.tenant_id", "projects.id"], name="fk_document_versions_project_tenant"),
         ForeignKeyConstraint(["tenant_id", "project_id", "document_id"], ["documents.tenant_id", "documents.project_id", "documents.id"], name="fk_document_versions_document_parent"),
+        ForeignKeyConstraint(["tenant_id", "uploaded_by"], ["memberships.tenant_id", "memberships.user_id"], name="fk_document_versions_uploader_tenant"),
     )
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     tenant_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("tenants.id"), nullable=False)
@@ -227,6 +228,7 @@ class KnowledgeAssertion(Base, TimestampMixin):
         Index("ix_assertions_fragment", "source_fragment_id"),
         ForeignKeyConstraint(["tenant_id", "project_id", "knowledge_item_id"], ["knowledge_items.tenant_id", "knowledge_items.project_id", "knowledge_items.id"], name="fk_assertions_item_parent"),
         ForeignKeyConstraint(["tenant_id", "project_id", "source_fragment_id"], ["source_fragments.tenant_id", "source_fragments.project_id", "source_fragments.id"], name="fk_assertions_fragment_parent"),
+        ForeignKeyConstraint(["tenant_id", "reviewed_by"], ["memberships.tenant_id", "memberships.user_id"], name="fk_assertions_reviewer_tenant"),
     )
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     tenant_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("tenants.id"), nullable=False)
@@ -249,7 +251,7 @@ class KnowledgeAssertion(Base, TimestampMixin):
 
 class Conversation(Base, TimestampMixin):
     __tablename__ = "conversations"
-    __table_args__ = (Index("ix_conversations_project_owner_updated", "project_id", "owner_user_id", "updated_at"), UniqueConstraint("tenant_id", "id", name="uq_conversations_tenant_id"), ForeignKeyConstraint(["tenant_id", "project_id"], ["projects.tenant_id", "projects.id"], name="fk_conversations_project_tenant"))
+    __table_args__ = (Index("ix_conversations_project_owner_updated", "project_id", "owner_user_id", "updated_at"), UniqueConstraint("tenant_id", "id", name="uq_conversations_tenant_id"), ForeignKeyConstraint(["tenant_id", "project_id"], ["projects.tenant_id", "projects.id"], name="fk_conversations_project_tenant"), ForeignKeyConstraint(["tenant_id", "owner_user_id"], ["memberships.tenant_id", "memberships.user_id"], name="fk_conversations_owner_tenant"))
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     tenant_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("tenants.id"), nullable=False)
     project_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("projects.id"), nullable=False)
@@ -281,6 +283,8 @@ class MemoryEntry(Base, TimestampMixin):
         CheckConstraint("status IN ('proposed','confirmed','rejected','expired','deleted')", name="ck_memory_status"),
         Index("ix_memory_scope_lookup", "tenant_id", "scope_type", "scope_id", "status"),
         ForeignKeyConstraint(["tenant_id", "project_id"], ["projects.tenant_id", "projects.id"], name="fk_memory_entries_project_tenant"),
+        ForeignKeyConstraint(["tenant_id", "owner_user_id"], ["memberships.tenant_id", "memberships.user_id"], name="fk_memory_entries_owner_tenant"),
+        ForeignKeyConstraint(["tenant_id", "confirmed_by"], ["memberships.tenant_id", "memberships.user_id"], name="fk_memory_entries_confirmer_tenant"),
     )
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     tenant_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("tenants.id"), nullable=False)
@@ -303,6 +307,7 @@ class AuditEvent(Base):
     __table_args__ = (
         Index("ix_audit_events_tenant_created", "tenant_id", "created_at"),
         Index("ix_audit_events_target", "target_type", "target_id"),
+        ForeignKeyConstraint(["tenant_id", "actor_user_id"], ["memberships.tenant_id", "memberships.user_id"], name="fk_audit_events_actor_tenant"),
     )
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     tenant_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("tenants.id"), nullable=False)
