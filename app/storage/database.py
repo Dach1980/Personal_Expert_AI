@@ -1,10 +1,10 @@
-"""SQLAlchemy engine and session helpers."""
-
+"""SQLAlchemy engine, sessions, and PostgreSQL RLS context."""
 import os
 from collections.abc import Generator
 from functools import lru_cache
+from uuid import UUID
 
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.storage.models import Base
@@ -29,10 +29,18 @@ def _default_session_factory() -> sessionmaker[Session]:
     return build_session_factory()
 
 
+def set_tenant_context(session: Session, tenant_id: UUID) -> None:
+    """Set transaction-local PostgreSQL RLS context from a trusted principal."""
+    session.execute(
+        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+        {"tenant_id": str(tenant_id)},
+    )
+
+
 def get_session() -> Generator[Session, None, None]:
     """Yield a request-scoped session and always close it."""
     with _default_session_factory()() as session:
         yield session
 
 
-__all__ = ["Base", "build_engine", "build_session_factory", "get_session"]
+__all__ = ["Base", "build_engine", "build_session_factory", "get_session", "set_tenant_context"]
