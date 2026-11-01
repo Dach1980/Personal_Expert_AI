@@ -11,6 +11,7 @@ depends_on = None
 
 CONSTRAINTS = [
     "ALTER TABLE workspaces ADD CONSTRAINT uq_workspaces_tenant_id UNIQUE (tenant_id, id)",
+    "ALTER TABLE projects ADD CONSTRAINT uq_projects_tenant_id UNIQUE (tenant_id, id)",
     "ALTER TABLE projects ADD CONSTRAINT fk_projects_workspace_tenant FOREIGN KEY (tenant_id, workspace_id) REFERENCES workspaces (tenant_id, id)",
     "ALTER TABLE project_memberships ADD CONSTRAINT fk_project_memberships_project_tenant FOREIGN KEY (tenant_id, project_id) REFERENCES projects (tenant_id, id)",
     "ALTER TABLE project_memberships ADD CONSTRAINT fk_project_memberships_tenant_member FOREIGN KEY (tenant_id, user_id) REFERENCES memberships (tenant_id, user_id)",
@@ -108,6 +109,7 @@ def downgrade() -> None:
         ("project_memberships", "fk_project_memberships_tenant_member"),
         ("project_memberships", "fk_project_memberships_project_tenant"),
         ("projects", "fk_projects_workspace_tenant"),
+        ("projects", "uq_projects_tenant_id"),
         ("workspaces", "uq_workspaces_tenant_id"),
     ]:
         table, constraint = statement
