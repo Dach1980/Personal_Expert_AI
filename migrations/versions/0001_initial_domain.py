@@ -83,6 +83,8 @@ def upgrade() -> None:
             CONSTRAINT uq_document_versions_storage_key UNIQUE (storage_key),
             CONSTRAINT ck_document_versions_size_nonnegative CHECK (size_bytes >= 0)
         );
+        ALTER TABLE documents ADD CONSTRAINT fk_documents_current_version
+            FOREIGN KEY (current_version_id) REFERENCES document_versions(id);
         CREATE INDEX ix_document_versions_project_checksum
             ON document_versions(project_id, checksum_sha256);
         CREATE INDEX ix_document_versions_document_uploaded
@@ -200,6 +202,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute("""
+        ALTER TABLE IF EXISTS documents DROP CONSTRAINT IF EXISTS fk_documents_current_version;
         DROP TABLE IF EXISTS audit_events, memory_entries, messages, conversations,
             knowledge_assertions, knowledge_items, source_fragments, processing_artifacts,
             processing_runs, document_versions, documents, project_memberships,
