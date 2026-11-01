@@ -8,7 +8,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
-    BigInteger, CheckConstraint, Date, DateTime, ForeignKey, Index, Numeric,
+    BigInteger, CheckConstraint, Date, DateTime, ForeignKey, ForeignKeyConstraint, Index, Numeric,
     String, Text, UniqueConstraint, Uuid, func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -59,6 +59,7 @@ class Membership(Base, TimestampMixin):
 
 class Workspace(Base, TimestampMixin):
     __tablename__ = "workspaces"
+    __table_args__ = (UniqueConstraint("tenant_id", "id", name="uq_workspaces_tenant_id"),)
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     tenant_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("tenants.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -70,6 +71,8 @@ class Project(Base, TimestampMixin):
     __table_args__ = (
         Index("ix_projects_tenant_status", "tenant_id", "status"),
         Index("ix_projects_tenant_code", "tenant_id", "code"),
+        UniqueConstraint("tenant_id", "id", name="uq_projects_tenant_id"),
+        ForeignKeyConstraint(["tenant_id", "workspace_id"], ["workspaces.tenant_id", "workspaces.id"], name="fk_projects_workspace_tenant"),
     )
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     tenant_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("tenants.id"), nullable=False)
