@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
 from uuid import uuid4
 
@@ -11,7 +11,7 @@ from app.api.auth import get_current_principal
 
 
 def _token(secret: str, user_id, tenant_id) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return jwt.encode(
         {
             "sub": str(user_id),
