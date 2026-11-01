@@ -2,7 +2,7 @@
 
 Локальная AI-платформа для работы с проектной документацией: загрузка и структурирование файлов, поиск с доказательными ссылками на источники, диалог по содержимому проекта и инженерные проверки.
 
-> **Статус:** архитектурное исследование и базовый комплект спецификаций подготовлены 2026-11-01. Приложение пока остаётся техническим каркасом; интеграции и сценарии должны пройти прототипирование.
+> **Статус:** архитектурное исследование и базовый комплект спецификаций подготовлены 2026-11-01. Создан начальный слой PostgreSQL/SQLAlchemy/Alembic; runtime-проверки и интеграции ещё не выполнены.
 
 ## Цели
 
@@ -34,8 +34,21 @@
 - [Memory Engine](docs/architecture/MEMORY_ENGINE.md)
 - [Security Model](docs/architecture/SECURITY_MODEL.md)
 - [LLM Provider Architecture](docs/architecture/LLM_PROVIDER_ARCHITECTURE.md)
+- [PostgreSQL Database Schema](docs/architecture/DATABASE_SCHEMA.md)
+- [ERD](docs/architecture/erd.mmd)
 
-Также доступны [архитектурное исследование](docs/research/ARCHITECTURE_RESEARCH_2026-11-01.md), [ADR 0001](docs/decisions/0001-initial-architecture.md), [ADR 0002](docs/decisions/0002-component-selection.md) и [план разработки](docs/development/ROADMAP.md).
+## Database foundation
+
+The initial relational layer includes SQLAlchemy 2.x models, PostgreSQL DDL migration and Alembic configuration. It covers tenant/user membership, workspaces/projects, document versions, processing runs and artifacts, source fragments, knowledge assertions, conversations/messages, memory entries and audit events.
+
+Install and run locally:
+
+    pip install -e ".[database,dev]"
+    docker compose up -d postgres
+    alembic upgrade head
+    pytest
+
+Set DATABASE_URL to the local PostgreSQL connection string before running Alembic. Do not use the placeholder password in docker-compose for any exposed or shared environment. These commands are documented setup instructions; they have not yet been executed in the current development environment.
 
 ## Предварительный технологический контур
 
