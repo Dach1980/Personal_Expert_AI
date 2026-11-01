@@ -1,0 +1,90 @@
+erDiagram
+    TENANTS ||--o{ MEMBERSHIPS : has
+    USERS ||--o{ MEMBERSHIPS : joins
+    TENANTS ||--o{ WORKSPACES : owns
+    TENANTS ||--o{ PROJECTS : owns
+    WORKSPACES ||--o{ PROJECTS : groups
+    PROJECTS ||--o{ PROJECT_MEMBERSHIPS : grants
+    USERS ||--o{ PROJECT_MEMBERSHIPS : receives
+    PROJECTS ||--o{ DOCUMENTS : contains
+    DOCUMENTS ||--o{ DOCUMENT_VERSIONS : versions
+    DOCUMENT_VERSIONS ||--o{ PROCESSING_RUNS : processed_by
+    PROCESSING_RUNS ||--o{ PROCESSING_ARTIFACTS : produces
+    DOCUMENT_VERSIONS ||--o{ SOURCE_FRAGMENTS : contains
+    PROJECTS ||--o{ KNOWLEDGE_ITEMS : contains
+    KNOWLEDGE_ITEMS ||--o{ KNOWLEDGE_ASSERTIONS : supported_by
+    SOURCE_FRAGMENTS ||--o{ KNOWLEDGE_ASSERTIONS : evidence
+    PROJECTS ||--o{ CONVERSATIONS : has
+    CONVERSATIONS ||--o{ MESSAGES : contains
+    TENANTS ||--o{ MEMORY_ENTRIES : scopes
+    TENANTS ||--o{ AUDIT_EVENTS : records
+    USERS ||--o{ AUDIT_EVENTS : performs
+    TENANTS { uuid id PK
+        varchar name
+        varchar status }
+    USERS { uuid id PK
+        varchar login UK
+        varchar display_name }
+    MEMBERSHIPS { uuid id PK
+        uuid tenant_id FK
+        uuid user_id FK
+        varchar role }
+    WORKSPACES { uuid id PK
+        uuid tenant_id FK
+        varchar name }
+    PROJECTS { uuid id PK
+        uuid tenant_id FK
+        uuid workspace_id FK
+        varchar code
+        varchar name
+        varchar status }
+    PROJECT_MEMBERSHIPS { uuid id PK
+        uuid project_id FK
+        uuid user_id FK
+        varchar role }
+    DOCUMENTS { uuid id PK
+        uuid tenant_id FK
+        uuid project_id FK
+        varchar title }
+    DOCUMENT_VERSIONS { uuid id PK
+        uuid document_id FK
+        varchar checksum_sha256
+        varchar storage_key
+        bigint size_bytes }
+    PROCESSING_RUNS { uuid id PK
+        uuid document_version_id FK
+        varchar pipeline_version
+        varchar status }
+    PROCESSING_ARTIFACTS { uuid id PK
+        uuid processing_run_id FK
+        varchar artifact_type
+        varchar storage_key }
+    SOURCE_FRAGMENTS { uuid id PK
+        uuid document_version_id FK
+        jsonb locator
+        text content }
+    KNOWLEDGE_ITEMS { uuid id PK
+        uuid project_id FK
+        varchar kind
+        jsonb canonical_value }
+    KNOWLEDGE_ASSERTIONS { uuid id PK
+        uuid knowledge_item_id FK
+        uuid source_fragment_id FK
+        jsonb value
+        numeric confidence }
+    CONVERSATIONS { uuid id PK
+        uuid project_id FK
+        uuid owner_user_id FK }
+    MESSAGES { uuid id PK
+        uuid conversation_id FK
+        varchar role
+        text content }
+    MEMORY_ENTRIES { uuid id PK
+        uuid tenant_id FK
+        varchar scope_type
+        uuid scope_id }
+    AUDIT_EVENTS { uuid id PK
+        uuid tenant_id FK
+        uuid actor_user_id FK
+        varchar action
+        timestamptz created_at }
