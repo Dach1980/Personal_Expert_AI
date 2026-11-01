@@ -21,8 +21,9 @@ def upgrade() -> None:
             updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
         );
         CREATE TABLE users (
-            id UUID PRIMARY KEY, login VARCHAR(255) NOT NULL UNIQUE,
+            id UUID PRIMARY KEY, login VARCHAR(255) NOT NULL,
             display_name VARCHAR(200), status VARCHAR(20) NOT NULL,
+            CONSTRAINT uq_users_login UNIQUE (login),
             created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
         );
