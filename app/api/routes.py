@@ -100,5 +100,7 @@ def create_document(
             tenant_id, project_id, principal.user_id,
             title=payload.title, document_type=payload.document_type,
         )
+    except AccessDeniedError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from None
     except ResourceNotFoundError:
         raise HTTPException(status_code=404, detail="Project not found") from None
