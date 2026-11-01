@@ -9,6 +9,8 @@
 
 ## 2. Состояния документа и версии
 
+Целостность исходного файла и неизменяемость идентичности DocumentVersion определены в [DOCUMENT_STORAGE_INTEGRITY.md](DOCUMENT_STORAGE_INTEGRITY.md). Файл должен пройти checksum/size verification до запуска любого parser или индексатора.
+
 Логический Document существует независимо от конкретного файла. Каждая загрузка создаёт DocumentVersion. Рекомендуемые состояния версии:
 
 uploaded → quarantined/validating → queued → processing → quality_check → indexed → current/superseded → archived.
