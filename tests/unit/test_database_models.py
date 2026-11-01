@@ -1,0 +1,32 @@
+from sqlalchemy import CheckConstraint, UniqueConstraint
+
+from app.storage.models import Base
+import app.storage.models  # noqa: F401
+
+
+def test_initial_domain_tables_are_registered() -> None:
+    expected = {
+        "tenants", "users", "memberships", "workspaces", "projects",
+        "project_memberships", "documents", "document_versions",
+        "processing_runs", "processing_artifacts", "source_fragments",
+        "knowledge_items", "knowledge_assertions", "conversations",
+        "messages", "memory_entries", "audit_events",
+    }
+    assert expected == set(Base.metadata.tables)
+
+
+def test_document_versions_have_immutable_storage_identity() -> None:
+    table = Base.metadata.tables["document_versions"]
+    assert {"checksum_sha256", "storage_key", "document_id", "project_id"} <= set(table.columns)
+    assert any(
+        isinstance(item, UniqueConstraint) and "storage_key" in [c.name for c in item.columns]
+        for item in table.constraints
+    )
+
+
+def test_assertions_constrain_confidence() -> None:
+    table = Base.metadata.tables["knowledge_assertions"]
+    assert any(
+        isinstance(item, CheckConstraint) and "confidence" in str(item.sqltext)
+        for item in table.constraints
+    )
