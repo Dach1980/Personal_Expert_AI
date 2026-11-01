@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, inspect
 
 from app.storage.models import Base
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("APP_DATABASE_URL") or os.getenv("DATABASE_URL")
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="PostgreSQL DATABASE_URL is required")
 
 
