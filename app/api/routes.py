@@ -5,16 +5,30 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.auth import Principal, get_current_principal
-from app.api.schemas import DocumentCreate, DocumentRead, ProjectCreate, ProjectRead
+from app.api.schemas import DocumentCreate, DocumentRead, ProjectCreate, ProjectRead, TenantRead
 from app.storage.database import get_session
 from app.storage.services import (
     AccessDeniedError,
     DocumentService,
     ProjectService,
     ResourceNotFoundError,
+    TenantService,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["workspace"])
+
+
+@router.get("/tenants/{tenant_id}", response_model=TenantRead)
+def get_tenant(
+    tenant_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: Session = Depends(get_session),
+):
+    _check_tenant(tenant_id, principal)
+    try:
+        return TenantService(session).get(tenant_id, principal.user_id)
+    except ResourceNotFoundError:
+        raise HTTPException(status_code=404, detail="Tenant not found") from None
 
 
 def _check_tenant(tenant_id: UUID, principal: Principal) -> None:
