@@ -6,8 +6,8 @@ import os
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from app.storage.models import Base
 import app.storage.models  # noqa: F401
+from app.storage.models import Base
 
 config = context.config
 if config.config_file_name is not None:
