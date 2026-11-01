@@ -2,7 +2,7 @@
 
 Локальная AI-платформа для работы с проектной документацией: загрузка и структурирование файлов, поиск с доказательными ссылками на источники, диалог по содержимому проекта и инженерные проверки.
 
-> **Статус:** архитектурное исследование и базовый комплект спецификаций подготовлены 2026-11-01. Создан начальный слой PostgreSQL/SQLAlchemy/Alembic; runtime-проверки и интеграции ещё не выполнены.
+> **Статус:** базовая PostgreSQL/SQLAlchemy/Alembic-схема, tenant isolation, RLS и первые защищённые API-маршруты реализованы. GitHub Actions проверяет миграции и интеграционные тесты на PostgreSQL 16; актуальный статус см. в [Database Integrity workflow](https://github.com/Dach1980/Personal_Expert_AI/actions/workflows/database-ci.yml).
 
 ## Цели
 
@@ -39,16 +39,19 @@
 
 ## Database foundation
 
-The initial relational layer includes SQLAlchemy 2.x models, PostgreSQL DDL migration and Alembic configuration. It covers tenant/user membership, workspaces/projects, document versions, processing runs and artifacts, source fragments, knowledge assertions, conversations/messages, memory entries and audit events.
+The relational layer includes SQLAlchemy 2.x models, versioned PostgreSQL migrations and Alembic configuration. Migration `0002_tenant_isolation` adds composite foreign keys for tenant/project parent consistency and enables PostgreSQL RLS. The runtime database role must be a dedicated non-owner role without SUPERUSER or BYPASSRLS.
 
 Install and run locally:
 
     pip install -e ".[database,dev]"
     docker compose up -d postgres
+    set DATABASE_URL=postgresql+psycopg://personal_expert:YOUR_PASSWORD@localhost:5432/personal_expert
     alembic upgrade head
     pytest
 
-Set DATABASE_URL to the local PostgreSQL connection string before running Alembic. Do not use the placeholder password in docker-compose for any exposed or shared environment. These commands are documented setup instructions; they have not yet been executed in the current development environment.
+The authenticated API accepts signed HS256 JWTs issued by a trusted identity provider. Configure `JWT_SECRET` (at least 32 characters), `JWT_ISSUER` and `JWT_AUDIENCE`. Tokens must carry user UUID in `sub` and tenant UUID in `tenant_id`. The application does not issue tokens or manage passwords yet.
+
+The CI workflow provisions PostgreSQL 16, applies and reverts migrations, checks ORM/schema parity, runs RLS tests using a restricted non-owner database role, and runs the unit test suite. Do not use the placeholder password in docker-compose for any exposed or shared environment.
 
 ## Предварительный технологический контур
 
