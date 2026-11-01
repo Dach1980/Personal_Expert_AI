@@ -39,7 +39,7 @@
 
 ## Database foundation
 
-The relational layer includes SQLAlchemy 2.x models, versioned PostgreSQL migrations and Alembic configuration. Migration `0002_tenant_isolation` adds composite foreign keys for tenant/project parent consistency and enables PostgreSQL RLS. The runtime database role must be a dedicated non-owner role without SUPERUSER or BYPASSRLS.
+The relational layer includes SQLAlchemy 2.x models, versioned PostgreSQL migrations and Alembic configuration. Migration `0002_tenant_isolation` adds composite foreign keys for tenant/project parent consistency and enables PostgreSQL RLS. The runtime database role must be a dedicated non-owner role without SUPERUSER or BYPASSRLS; see [PostgreSQL runtime role setup](docs/development/POSTGRES_RUNTIME_ROLE.md).
 
 Install and run locally:
 
