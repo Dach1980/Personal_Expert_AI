@@ -1,65 +1,72 @@
-# План разработки
+# План разработки Personal Expert AI
 
-## Фаза 0. Архитектурное исследование — выполнено 2026-11-01
+## Фаза 0. Архитектурное исследование — выполнено
 
 - [x] Исследовать AnythingLLM, LM Studio, Hermes Agent, Bionic и Project Expert AI.
-- [x] Сформировать предварительную архитектуру и план прототипов.
+- [x] Сформировать архитектуру и план прототипов.
 - [x] Подготовить сравнительное исследование и ADR 0002.
 
-## Фаза 0.5. Архитектурные спецификации — комплект подготовлен 2026-11-01
+## Фаза 0.5. Архитектурные спецификации — выполнено
 
-- [x] PRODUCT_REQUIREMENTS.md — назначение, роли, сценарии, MVP.
-- [x] DOMAIN_MODEL.md — сущности, связи, владение и версии.
-- [x] BACKEND_API.md — целевые контракты API.
-- [x] DOCUMENT_LIFECYCLE.md — жизненный цикл документа.
-- [x] KNOWLEDGE_MODEL.md — структура знаний и provenance.
-- [x] MEMORY_ENGINE.md — память и Skills.
-- [x] SECURITY_MODEL.md — права, изоляция и local-only.
-- [x] LLM_PROVIDER_ARCHITECTURE.md — provider abstraction и LM Studio.
-- [x] Связать комплект документов с архитектурным обзором и README.
+- [x] PRODUCT_REQUIREMENTS.md.
+- [x] DOMAIN_MODEL.md.
+- [x] BACKEND_API.md.
+- [x] DOCUMENT_LIFECYCLE.md.
+- [x] KNOWLEDGE_MODEL.md.
+- [x] MEMORY_ENGINE.md.
+- [x] SECURITY_MODEL.md.
+- [x] LLM_PROVIDER_ARCHITECTURE.md.
+- [x] Связать спецификации с архитектурным обзором и README.
 
-Результат: согласованная проектная спецификация. Это документация целевой архитектуры, а не подтверждение реализации всех описанных функций.
+Результат: согласованная целевая архитектура. Документация сама по себе не означает, что все описанные функции реализованы.
 
-## Фаза 0.6. Архитектурная верификация и проектирование БД
+## Фаза 0.6. Реляционное ядро и tenant isolation — выполнено
 
-- [x] Подготовить ERD начального реляционного ядра (erd.mmd).
-- [x] Подготовить физическую спецификацию PostgreSQL (DATABASE_SCHEMA.md).
-- [x] Создать SQLAlchemy 2.x модели для базовых доменных сущностей.
-- [x] Добавить Alembic environment и начальную DDL migration.
-- [x] Добавить unit tests для регистрации моделей и ключевых ограничений.
-- [ ] Выполнить pytest, Ruff и Alembic upgrade/downgrade на PostgreSQL 16.
-- [ ] Проверить соответствие ORM metadata и DDL migration.
-- [ ] Добавить composite foreign keys для tenant/project consistency и определить RLS policy.
-- [ ] Провести consistency review всех статусов, API и lifecycle.
-- [ ] Утвердить OpenAPI schemas для MVP.
-- [ ] Уточнить storage abstraction и стратегию фоновых задач.
+- [x] ERD и физическая спецификация PostgreSQL.
+- [x] SQLAlchemy 2.x модели базовых доменных сущностей.
+- [x] Alembic migrations.
+- [x] Composite foreign keys для tenant/project consistency.
+- [x] PostgreSQL RLS и transaction-local tenant context.
+- [x] Repository/Service Layer для Tenant, Project и Document.
+- [x] JWT principal validation и защищённые базовые API routes.
+- [x] PostgreSQL 16 CI: upgrade, alembic check, integration tests, downgrade/re-upgrade, full pytest и Ruff.
 
-Первые четыре пункта — подготовлены в репозитории; выполнение runtime-проверок пока не подтверждено. Для этого потребуется локальная среда с установленными зависимостями и PostgreSQL.
+Результат подтверждён GitHub Actions. Production identity provider, выдача/отзыв токенов и эксплуатационная конфигурация runtime DB role остаются отдельными задачами.
 
-## Фаза 1. Проверочные прототипы
+## Фаза 1. Проверочные прототипы — запланировано
 
 - [ ] P0 — LM Studio: chat, vision, embeddings, tool calling, streaming, auth, concurrency, model loading.
 - [ ] P1 — AnythingLLM Docker: LM Studio connection, workspace ACL, API, citations, deletion, container privileges, network traffic.
-- [ ] P2 — сравнение ingestion: AnythingLLM против Project Expert AI на одном обезличенном комплекте документов.
+- [ ] P2 — сравнение ingestion на одном обезличенном комплекте документов.
 - [ ] P3 — Memory/Skills: user/project/session scopes, FTS, semantic recall, approval, versioning, deletion.
 - [ ] P4 — end-to-end интеграция одного проверочного кейса ВК с regression benchmark.
-- [ ] P5 — multi-user isolation: документы, индексы, память, история, логи, кэши и артефакты.
+- [ ] P5 — multi-user isolation для документов, индексов, памяти, истории, логов, кэшей и артефактов.
 
-## Фаза 2. Минимальный backend
+## Фаза 2. Backend и управление документами — в работе
 
-- [ ] Конфигурация приложения и безопасная загрузка переменных окружения.
-- [ ] Health/readiness endpoints.
-- [ ] Модели Tenant, User, Workspace, Project и Membership.
-- [ ] Миграции PostgreSQL и repository layer.
-- [ ] Локальное файловое хранилище с безопасными storage keys.
-- [ ] Абстракция LLM provider и адаптер LM Studio.
-- [ ] Очередь фоновых задач и idempotency.
-- [ ] Интеграционные тесты с mock LLM.
+- [x] FastAPI backend и health endpoint.
+- [x] PostgreSQL, SQLAlchemy, Alembic.
+- [x] Tenant/Project/Document repository и service layer.
+- [x] Проверка tenant/project access.
+- [x] Локальный файловый storage primitive с потоковым SHA-256, лимитом размера, staging и атомарной публикацией без перезаписи.
+- [x] DB constraints для размера, SHA-256, имени, MIME и storage key.
+- [x] PostgreSQL trigger, запрещающий изменение source identity у зарегистрированной DocumentVersion.
+- [x] Unit и PostgreSQL integration tests на checksum, подмену файла и неизменяемость источника.
+- [ ] Конфигурация storage root и безопасные runtime permissions.
+- [ ] Multipart upload API с авторизацией и квотами.
+- [ ] Idempotency keys и устойчивое состояние upload operation.
+- [ ] Quarantine и проверка фактического типа/содержимого файла.
+- [ ] Согласование файловой операции с транзакцией БД и cleanup при сбое.
+- [ ] Reconciliation worker для orphan files, missing files и abandoned staging.
+- [ ] Authenticated download с повторной проверкой checksum.
 
-## Фаза 3. Обработка документации
+Текущий storage primitive — не законченный upload workflow. Нельзя начинать parsing/indexing, пока исходный объект не зарегистрирован и не прошёл проверку целостности.
+
+## Фаза 3. Обработка документации — запланировано
 
 - [ ] Реестр форматов и валидация загрузок.
-- [ ] PDF: текстовый слой, страницы, рендеринг и OCR fallback.
+- [ ] PDF: native text/vector extraction, страницы, рендеринг и OCR fallback.
+- [ ] DOCX/XLSX/PPTX adapters.
 - [ ] Извлечение таблиц и сохранение координат.
 - [ ] Формулы и математические выражения.
 - [ ] Изображения и чертежи.
@@ -68,7 +75,7 @@
 - [ ] Индексация и поиск с точными ссылками на источники.
 - [ ] Сравнение редакций.
 
-## Фаза 4. Диалог по проекту
+## Фаза 4. Диалог по проекту — запланировано
 
 - [ ] Контекст проекта и выбор релевантных источников.
 - [ ] Цитирование файла, страницы, листа и фрагмента.
@@ -76,16 +83,16 @@
 - [ ] Уточняющие вопросы при недостатке доказательств.
 - [ ] Тесты точности ответов и устойчивости к prompt injection.
 
-## Фаза 5. Постоянная память и Skills
+## Фаза 5. Постоянная память и Skills — запланировано
 
 - [ ] Профиль пользователя и память проекта.
 - [ ] Поиск по прошлым сессиям.
 - [ ] Skills Registry с immutable versions.
 - [ ] Подтверждение важных фактов/решений.
-- [ ] Происхождение, срок актуальности и удаление записей памяти.
+- [ ] Provenance, срок актуальности и удаление записей памяти.
 - [ ] Tool Gateway с allowlist и аудитом.
 
-## Фаза 6. Инженерная экспертиза
+## Фаза 6. Инженерная экспертиза — запланировано
 
 - [ ] Интеграция выбранных модулей Project Expert AI.
 - [ ] Проверки внутри раздела.
@@ -94,16 +101,16 @@
 - [ ] Замечания с доказательствами и уровнем уверенности.
 - [ ] Отчёт и трассировка каждого вывода.
 
-## Фаза 7. Multi-user и эксплуатационная готовность
+## Фаза 7. Multi-user и эксплуатационная готовность — запланировано
 
-- [ ] Аутентификация и управление сессиями.
+- [ ] Production identity provider и управление сессиями.
 - [ ] Проверка изоляции пользователей, проектов, файлов и индексов.
 - [ ] Роли и разрешения.
 - [ ] Квоты и лимиты ресурсов.
 - [ ] Аудит доступа и действий.
-- [ ] Резервное копирование и восстановление.
+- [ ] Резервное копирование и проверенное восстановление.
 - [ ] Тестирование модели угроз и local-only network policy.
 
 ## Правило принятия решений
 
-Не фиксировать технологию только по популярности или маркетинговым заявлениям. Для существенного выбора создать ADR с альтернативами, benchmark, рисками и критериями пересмотра. Все пункты roadmap считаются выполненными только после реализации и проверок, а не после написания документации.
+Не фиксировать технологию только по популярности или маркетинговым заявлениям. Для существенного выбора создать ADR с альтернативами, benchmark, рисками и критериями пересмотра. Пункт roadmap считается выполненным только после реализации и проверок, а не после написания документации.
