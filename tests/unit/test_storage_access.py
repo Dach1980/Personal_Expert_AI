@@ -31,8 +31,8 @@ def test_project_repository_scopes_by_tenant_and_project() -> None:
     tenant_id, project_id = uuid4(), uuid4()
     ProjectRepository(session).get(tenant_id, project_id)
     sql = _where_sql(session.scalar.call_args.args[0])
-    assert f"projects.tenant_id = '{tenant_id}'" in sql
-    assert f"projects.id = '{project_id}'" in sql
+    assert f"projects.tenant_id = '{tenant_id.hex}'" in sql
+    assert f"projects.id = '{project_id.hex}'" in sql
 
 
 def test_tenant_repository_membership_query_scopes_both_ids() -> None:
@@ -40,7 +40,7 @@ def test_tenant_repository_membership_query_scopes_both_ids() -> None:
     tenant_id, user_id = uuid4(), uuid4()
     TenantRepository(session).active_membership(tenant_id, user_id)
     sql = _where_sql(session.scalar.call_args.args[0])
-    assert f"memberships.tenant_id = '{tenant_id}'" in sql
+    assert f"memberships.tenant_id = '{tenant_id.hex}'" in sql
     assert f"memberships.user_id = '{user_id.hex}'" in sql
     assert "memberships.status = 'active'" in sql
 
