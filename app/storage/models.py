@@ -118,7 +118,7 @@ class DocumentVersion(Base):
     __table_args__ = (
         UniqueConstraint("storage_key", name="uq_document_versions_storage_key"),
         CheckConstraint("size_bytes > 0", name="ck_document_versions_size_positive"),
-        CheckConstraint("length(checksum_sha256) = 64 AND checksum_sha256 ~ '^[0-9a-f]+$'", name="ck_document_versions_checksum_sha256"),
+        CheckConstraint("length(checksum_sha256) = 64 AND translate(checksum_sha256, '0123456789abcdef', '') = ''", name="ck_document_versions_checksum_sha256"),
         CheckConstraint("length(trim(original_filename)) > 0", name="ck_document_versions_filename_nonempty"),
         CheckConstraint("length(trim(media_type)) > 0", name="ck_document_versions_media_type_nonempty"),
         CheckConstraint("length(trim(storage_key)) > 0", name="ck_document_versions_storage_key_nonempty"),
