@@ -68,3 +68,11 @@ def test_document_service_rejects_viewer_document_creation() -> None:
     service = DocumentService(session)
     with pytest.raises(AccessDeniedError):
         service.create(uuid4(), uuid4(), uuid4(), title="Should not be created")
+
+
+def test_user_cannot_access_another_project_without_project_grant() -> None:
+    session = Mock()
+    session.scalar.side_effect = [Mock(role="member"), None]
+    service = DocumentService(session)
+    with pytest.raises(ResourceNotFoundError, match="Project not found"):
+        service.list(uuid4(), uuid4(), uuid4())
