@@ -20,6 +20,7 @@ CONSTRAINTS = [
     "ALTER TABLE document_versions ADD CONSTRAINT uq_document_versions_parent UNIQUE (tenant_id, project_id, document_id, id)",
     "ALTER TABLE document_versions ADD CONSTRAINT fk_document_versions_project_tenant FOREIGN KEY (tenant_id, project_id) REFERENCES projects (tenant_id, id)",
     "ALTER TABLE document_versions ADD CONSTRAINT fk_document_versions_document_parent FOREIGN KEY (tenant_id, project_id, document_id) REFERENCES documents (tenant_id, project_id, id)",
+    "ALTER TABLE documents DROP CONSTRAINT fk_documents_current_version",
     "ALTER TABLE documents ADD CONSTRAINT fk_documents_current_version_parent FOREIGN KEY (tenant_id, project_id, id, current_version_id) REFERENCES document_versions (tenant_id, project_id, document_id, id)",
     "ALTER TABLE processing_runs ADD CONSTRAINT uq_processing_runs_parent UNIQUE (tenant_id, project_id, id)",
     "ALTER TABLE processing_runs ADD CONSTRAINT fk_processing_runs_project_tenant FOREIGN KEY (tenant_id, project_id) REFERENCES projects (tenant_id, id)",
@@ -111,3 +112,4 @@ def downgrade() -> None:
     ]:
         table, constraint = statement
         op.execute(f"ALTER TABLE {table} DROP CONSTRAINT {constraint}")
+    op.execute("ALTER TABLE documents ADD CONSTRAINT fk_documents_current_version FOREIGN KEY (current_version_id) REFERENCES document_versions (id)")
