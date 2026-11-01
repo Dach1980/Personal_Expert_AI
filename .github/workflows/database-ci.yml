@@ -55,6 +55,11 @@ jobs:
         run: alembic downgrade base
       - name: Re-upgrade to head
         run: alembic upgrade head
+      - name: Restore application grants after schema recreation
+        run: |
+          psql "postgresql://personal_expert:personal_expert@localhost:5432/personal_expert" -v ON_ERROR_STOP=1 <<'SQL'
+          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_runtime;
+          SQL
       - name: Full test suite
         run: pytest -q
       - name: Lint
