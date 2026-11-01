@@ -103,7 +103,7 @@ class Document(Base, TimestampMixin):
     project_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("projects.id"), nullable=False)
     document_type: Mapped[str | None] = mapped_column(String(80))
     title: Mapped[str] = mapped_column(String(500), nullable=False)
-    current_version_id: Mapped[UUID | None] = mapped_column(Uuid)
+    current_version_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("document_versions.id"))
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
 
 
