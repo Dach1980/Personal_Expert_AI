@@ -1,4 +1,4 @@
-from sqlalchemy import CheckConstraint, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint
 
 from app.storage.models import Base
 import app.storage.models  # noqa: F401
@@ -21,6 +21,15 @@ def test_document_versions_have_immutable_storage_identity() -> None:
     assert any(
         isinstance(item, UniqueConstraint) and "storage_key" in [c.name for c in item.columns]
         for item in table.constraints
+    )
+
+
+def test_document_current_version_references_a_version() -> None:
+    table = Base.metadata.tables["documents"]
+    column = table.columns["current_version_id"]
+    assert any(
+        isinstance(item, ForeignKey) and item.target_fullname == "document_versions.id"
+        for item in column.foreign_keys
     )
 
 
