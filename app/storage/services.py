@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 from sqlalchemy.orm import Session
 
 from app.storage.models import Document, Project, Tenant, Workspace
+from app.storage.database import set_tenant_context
 from app.storage.repositories import DocumentRepository, ProjectRepository, TenantRepository
 
 
@@ -21,6 +22,7 @@ class TenantService:
         self.tenants = TenantRepository(session)
 
     def get(self, tenant_id: UUID, user_id: UUID) -> Tenant:
+        set_tenant_context(self.session, tenant_id)
         if self.tenants.active_membership(tenant_id, user_id) is None:
             raise ResourceNotFoundError("Tenant not found")
         tenant = self.tenants.get(tenant_id)
@@ -30,6 +32,7 @@ class TenantService:
 
     def create(self, name: str, owner_user_id: UUID) -> Tenant:
         tenant = Tenant(id=uuid4(), name=name, status="active")
+        set_tenant_context(self.session, tenant.id)
         self.tenants.add(tenant)
         # Membership is created in the same transaction as the tenant.
         from app.storage.models import Membership
@@ -52,6 +55,7 @@ class ProjectService:
         self.projects = ProjectRepository(session)
 
     def get(self, tenant_id: UUID, project_id: UUID, user_id: UUID) -> Project:
+        set_tenant_context(self.session, tenant_id)
         if self.tenants.active_membership(tenant_id, user_id) is None:
             raise ResourceNotFoundError("Project not found")
         if self.projects.active_membership(tenant_id, project_id, user_id) is None:
@@ -62,6 +66,7 @@ class ProjectService:
         return project
 
     def list(self, tenant_id: UUID, user_id: UUID) -> list[Project]:
+        set_tenant_context(self.session, tenant_id)
         if self.tenants.active_membership(tenant_id, user_id) is None:
             raise ResourceNotFoundError("Tenant not found")
         # Return only projects for which the caller has an active project grant.
@@ -86,6 +91,7 @@ class ProjectService:
         code: str | None = None, workspace_id: UUID | None = None,
         description: str | None = None,
     ) -> Project:
+        set_tenant_context(self.session, tenant_id)
         membership = self.tenants.active_membership(tenant_id, user_id)
         if membership is None or membership.role not in self.TENANT_ADMIN_ROLES:
             raise AccessDeniedError("Tenant administrator role is required to create projects")
@@ -123,6 +129,7 @@ class DocumentService:
         self.documents = DocumentRepository(session)
 
     def _require_project_access(self, tenant_id: UUID, project_id: UUID, user_id: UUID) -> None:
+        set_tenant_context(self.session, tenant_id)
         if self.tenants.active_membership(tenant_id, user_id) is None:
             raise ResourceNotFoundError("Project not found")
         if self.projects.active_membership(tenant_id, project_id, user_id) is None:
