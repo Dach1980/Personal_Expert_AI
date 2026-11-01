@@ -41,7 +41,7 @@ jobs:
         run: alembic upgrade head
       - name: Create restricted application role for RLS tests
         run: |
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          psql "postgresql://personal_expert:personal_expert@localhost:5432/personal_expert" -v ON_ERROR_STOP=1 <<'SQL'
           CREATE ROLE app_runtime LOGIN PASSWORD 'app_runtime_test_password' NOSUPERUSER NOBYPASSRLS;
           GRANT CONNECT ON DATABASE personal_expert TO app_runtime;
           GRANT USAGE ON SCHEMA public TO app_runtime;
