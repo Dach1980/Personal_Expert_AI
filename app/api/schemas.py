@@ -33,3 +33,10 @@ class DocumentRead(BaseModel):
     title: str
     document_type: str | None
     status: str
+
+
+class TenantRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    name: str
+    status: str
