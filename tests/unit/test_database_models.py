@@ -10,7 +10,7 @@ def test_initial_domain_tables_are_registered() -> None:
         "project_memberships", "documents", "document_versions",
         "processing_runs", "processing_artifacts", "source_fragments",
         "knowledge_items", "knowledge_assertions", "conversations",
-        "messages", "memory_entries", "audit_events",
+        "messages", "memory_entries", "audit_events", "upload_operations",
     }
     assert expected == set(Base.metadata.tables)
 
