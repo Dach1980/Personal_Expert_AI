@@ -29,6 +29,7 @@ def test_pdf_enrichment_renders_pages_and_builds_structured_model():
     assert render.locator["page"] == 1
     assert payload["geometry"]["render_dpi"] == 120
     assert payload["native_text"].startswith("Native PDF text")
+    assert payload["combined_text"] == payload["native_text"].strip()
     assert payload["native_text_quality"]["ocr_recommended"] is False
     assert result.metadata["page_rendering"]["rendered_page_count"] == 1
     assert any(item.fragment_type == "page_render" for item in result.fragments)

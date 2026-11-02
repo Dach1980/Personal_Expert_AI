@@ -150,6 +150,7 @@ def enrich_pdf(
                 len(native_text.strip()) < MIN_NATIVE_CHARACTERS
                 or native_density < MIN_NATIVE_CHARACTERS_PER_AREA
             )
+            ocr_text = ""
             ocr_result: dict[str, Any] = {
                 "available": False, "reason": "not_required",
                 "text": "", "words": [],
@@ -199,6 +200,8 @@ def enrich_pdf(
                     "render_dpi": dpi,
                 },
                 "native_text": native_text,
+                "ocr_text": ocr_text,
+                "combined_text": "\n".join(part for part in (native_text.strip(), ocr_text.strip()) if part),
                 "native_text_quality": {
                     "character_count": len(native_text.strip()),
                     "character_density_per_point2": round(native_density, 8),
