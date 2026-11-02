@@ -509,11 +509,6 @@ class DocumentUploadService:
                     )
                 )
             )
-            known_keys.update(
-                item.storage_key for item in session.scalars(
-                    select(UploadOperation).where(UploadOperation.tenant_id == tenant_id)
-                )
-            )
         tenant_prefix = f"{tenant_id}/"
         orphan_keys = tuple(
             key for key in self.store.iter_objects()
