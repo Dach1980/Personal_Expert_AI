@@ -8,8 +8,8 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
-    BigInteger, CheckConstraint, Date, DateTime, ForeignKey, ForeignKeyConstraint, Index, Numeric,
-    String, Text, UniqueConstraint, Uuid, func,
+    BigInteger, CheckConstraint, Date, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, Numeric,
+    String, Text, UniqueConstraint, Uuid, func, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -150,6 +150,12 @@ class ProcessingRun(Base, TimestampMixin):
     __tablename__ = "processing_runs"
     __table_args__ = (
         CheckConstraint("status IN ('queued','running','succeeded','partially_succeeded','failed','cancelled')", name="ck_processing_runs_status"),
+        CheckConstraint("attempt_count >= 0 AND max_attempts BETWEEN 1 AND 20", name="ck_processing_runs_attempts"),
+        CheckConstraint("status <> 'running' OR (lease_owner IS NOT NULL AND lease_expires_at IS NOT NULL)", name="ck_processing_runs_running_lease"),
+        CheckConstraint("status = 'running' OR (lease_owner IS NULL AND lease_expires_at IS NULL)", name="ck_processing_runs_nonrunning_without_lease"),
+        CheckConstraint("idempotency_key IS NULL OR (length(idempotency_key) BETWEEN 8 AND 128 AND idempotency_key !~ '[^A-Za-z0-9._:-]')", name="ck_processing_runs_idempotency_key"),
+        UniqueConstraint("tenant_id", "project_id", "idempotency_key", name="uq_processing_runs_idempotency"),
+        Index("ix_processing_runs_queue", "tenant_id", "status", "available_at", "created_at"),
         Index("ix_processing_runs_version_created", "document_version_id", "created_at"),
         Index("ix_processing_runs_project_status", "project_id", "status"),
         UniqueConstraint("tenant_id", "project_id", "id", name="uq_processing_runs_parent"),
@@ -164,6 +170,13 @@ class ProcessingRun(Base, TimestampMixin):
     pipeline_version: Mapped[str] = mapped_column(String(100), nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="queued")
     manifest: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, nullable=False, default=dict)
+    idempotency_key: Mapped[str | None] = mapped_column(String(128))
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=3, server_default=text("3"))
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    lease_owner: Mapped[str | None] = mapped_column(String(128))
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error_code: Mapped[str | None] = mapped_column(String(100))

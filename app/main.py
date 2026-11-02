@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from app.api.middleware import UploadBodyLimitMiddleware
 from app.api.routes import router as api_router
+from app.processing.api import router as processing_router
 from app.storage.config import max_upload_bytes
 
 app = FastAPI(
@@ -15,6 +16,7 @@ app = FastAPI(
 
 app.add_middleware(UploadBodyLimitMiddleware, max_bytes=max_upload_bytes())
 app.include_router(api_router)
+app.include_router(processing_router)
 
 
 @app.get("/health", tags=["system"])
