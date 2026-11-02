@@ -337,6 +337,66 @@ class UploadOperation(Base, TimestampMixin):
             name="ck_upload_operations_status",
         ),
         CheckConstraint("size_bytes IS NULL OR size_bytes > 0", name="ck_upload_operations_size"),
+        CheckConstraint(
+            "idempotency_key ~ '^[A-Za-z0-9._:-]{8,128}
+        ForeignKeyConstraint(
+            ["tenant_id", "project_id", "document_id"],
+            ["documents.tenant_id", "documents.project_id", "documents.id"],
+            name="fk_upload_operations_document_parent",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "created_by"],
+            ["memberships.tenant_id", "memberships.user_id"],
+            name="fk_upload_operations_creator_tenant_member",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "project_id", "document_version_id"],
+            ["document_versions.tenant_id", "document_versions.project_id", "document_versions.id"],
+            name="fk_upload_operations_version_parent",
+        ),
+        Index("ix_upload_operations_status_created", "status", "created_at"),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    tenant_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("tenants.id"), nullable=False)
+    project_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("projects.id"), nullable=False)
+    document_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("documents.id"), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_by: Mapped[UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="receiving")
+    original_filename: Mapped[str] = mapped_column(String(500), nullable=False)
+    media_type: Mapped[str | None] = mapped_column(String(150))
+    size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    quarantine_key: Mapped[str] = mapped_column(String(500), nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(500), nullable=False)
+    document_version_id: Mapped[UUID | None] = mapped_column(Uuid)
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+",
+            name="ck_upload_operations_idempotency_key",
+        ),
+        CheckConstraint("length(trim(original_filename)) > 0", name="ck_upload_operations_filename"),
+        CheckConstraint("length(trim(quarantine_key)) > 0", name="ck_upload_operations_quarantine_key"),
+        CheckConstraint("length(trim(storage_key)) > 0", name="ck_upload_operations_storage_key"),
+        CheckConstraint(
+            "checksum_sha256 IS NULL OR (length(checksum_sha256) = 64 AND "
+            "translate(checksum_sha256, '0123456789abcdef', '') = '')",
+            name="ck_upload_operations_checksum",
+        ),
+        CheckConstraint(
+            "media_type IS NULL OR length(trim(media_type)) > 0",
+            name="ck_upload_operations_media_type",
+        ),
+        CheckConstraint(
+            "status NOT IN ('quarantined','publishing','completed') OR "
+            "(media_type IS NOT NULL AND size_bytes IS NOT NULL AND checksum_sha256 IS NOT NULL)",
+            name="ck_upload_operations_validated_metadata",
+        ),
+        CheckConstraint(
+            "status <> 'completed' OR document_version_id IS NOT NULL",
+            name="ck_upload_operations_completed_version",
+        ),
         ForeignKeyConstraint(
             ["tenant_id", "project_id", "document_id"],
             ["documents.tenant_id", "documents.project_id", "documents.id"],
