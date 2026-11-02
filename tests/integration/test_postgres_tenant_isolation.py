@@ -227,6 +227,26 @@ def test_upload_is_idempotent_and_download_rechecks_sha256(connection, tmp_path)
                 {"tenant": tenant_id},
             ).scalar_one() == 0
 
+        with connection.begin():
+            connection.execute(
+                text("SELECT set_config('app.tenant_id', :tenant, true)"),
+                {"tenant": str(tenant_id)},
+            )
+            with pytest.raises(IntegrityError):
+                with connection.begin_nested():
+                    connection.execute(
+                        text("""UPDATE upload_operations SET media_type = NULL
+                                WHERE tenant_id = :tenant AND idempotency_key = 'upload-key-0001'"""),
+                        {"tenant": tenant_id},
+                    )
+            with pytest.raises(IntegrityError):
+                with connection.begin_nested():
+                    connection.execute(
+                        text("""UPDATE upload_operations SET document_version_id = NULL
+                                WHERE tenant_id = :tenant AND idempotency_key = 'upload-key-0001'"""),
+                        {"tenant": tenant_id},
+                    )
+
         replay = service.upload(
             tenant_id, project_id, document_id, user_id,
             "upload-key-0001", "source.pdf", BytesIO(source_bytes),
