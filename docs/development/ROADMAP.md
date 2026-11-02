@@ -52,15 +52,16 @@
 - [x] DB constraints для размера, SHA-256, имени, MIME и storage key.
 - [x] PostgreSQL trigger, запрещающий изменение source identity у зарегистрированной DocumentVersion.
 - [x] Unit и PostgreSQL integration tests на checksum, подмену файла и неизменяемость источника.
-- [ ] Конфигурация storage root и безопасные runtime permissions.
-- [ ] Multipart upload API с авторизацией и квотами.
-- [ ] Idempotency keys и устойчивое состояние upload operation.
-- [ ] Quarantine и проверка фактического типа/содержимого файла.
-- [ ] Согласование файловой операции с транзакцией БД и cleanup при сбое.
-- [ ] Reconciliation worker для orphan files, missing files и abandoned staging.
-- [ ] Authenticated download с повторной проверкой checksum.
+- [x] Конфигурация локального storage root, owner-only permissions и исключение локальных данных из Git.
+- [x] Multipart upload API с JWT, tenant/project/document access checks, request/file size limits.
+- [x] Idempotency keys и durable UploadOperation state machine в PostgreSQL под RLS.
+- [x] Quarantine и content-based validation PDF/DOCX/XLSX/PPTX.
+- [x] Согласование файловой операции с PostgreSQL через durable phases и crash recovery.
+- [x] Tenant-scoped reconciliation для interrupted uploads, missing/corrupt originals и orphan objects.
+- [x] Authenticated original download с повторной проверкой SHA-256 и размера на открытом file handle.
+- [x] Unit и PostgreSQL integration tests для идемпотентности, восстановления после сбоя, ACL, MIME/package validation и download integrity.
 
-Текущий storage primitive — не законченный upload workflow. Нельзя начинать parsing/indexing, пока исходный объект не зарегистрирован и не прошёл проверку целостности.
+Результат: первый законченный upload/download lifecycle реализован. Reconciliation запускается локальной командой по каждому tenant; автоматическое расписание и операторский мониторинг остаются эксплуатационной настройкой. Parsing/indexing ещё не подключены и должны запускаться только после статуса upload operation = completed.
 
 ## Фаза 3. Обработка документации — запланировано
 
