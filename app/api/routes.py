@@ -153,7 +153,7 @@ def upload_document_version(
         raise HTTPException(status_code=404, detail="Document not found") from None
     except UploadConflict as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
-    except UploadValidationError as exc:
+    except (UploadValidationError, ValueError) as exc:
         raise HTTPException(status_code=415, detail=str(exc)) from None
     except StorageIntegrityError:
         raise HTTPException(status_code=503, detail="Stored document integrity verification failed") from None
