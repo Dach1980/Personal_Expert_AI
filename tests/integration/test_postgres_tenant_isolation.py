@@ -214,6 +214,18 @@ def test_upload_is_idempotent_and_download_rechecks_sha256(connection, tmp_path)
         assert result.version.size_bytes == len(source_bytes)
         assert result.version.media_type == "application/pdf"
 
+        # The new upload-operation table must be protected by the same tenant RLS boundary.
+        with connection.begin():
+            connection.execute(
+                text("SELECT set_config('app.tenant_id', :tenant, true)"),
+                {"tenant": str(uuid4())},
+            )
+            assert connection.execute(
+                text("""SELECT count(*) FROM upload_operations
+                        WHERE tenant_id = :tenant AND idempotency_key = 'upload-key-0001'"""),
+                {"tenant": tenant_id},
+            ).scalar_one() == 0
+
         replay = service.upload(
             tenant_id, project_id, document_id, user_id,
             "upload-key-0001", "source.pdf", BytesIO(source_bytes),
