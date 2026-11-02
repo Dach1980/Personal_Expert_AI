@@ -4,11 +4,12 @@ from io import BytesIO
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.exc import IntegrityError
 
-from app.storage.database import build_session_factory
+from app.storage.database import build_session_factory, set_tenant_context
 from app.storage.file_store import LocalFileStore, StorageIntegrityError
+from app.storage.models import AuditEvent, DocumentVersion
 from app.storage.upload_service import DocumentUploadService, UploadAccessDenied, UploadConflict
 
 DATABASE_URL = os.getenv("APP_DATABASE_URL") or os.getenv("DATABASE_URL")
@@ -250,9 +251,6 @@ def test_upload_is_idempotent_and_download_rechecks_sha256(connection, tmp_path)
                 tenant_id, project_id, document_id, result.version.id, user_id
             )
         with factory() as session, session.begin():
-            from app.storage.database import set_tenant_context
-            from app.storage.models import AuditEvent, DocumentVersion
-            from sqlalchemy import select
             set_tenant_context(session, tenant_id)
             stored_version = session.get(DocumentVersion, result.version.id)
             assert stored_version.status == "integrity_failed"
