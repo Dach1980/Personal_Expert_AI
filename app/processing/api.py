@@ -6,10 +6,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from app.api.auth import Principal, get_current_principal
-from app.storage.database import get_session_factory
 from app.processing.service import (
     ProcessingAccessDenied, ProcessingConflict, ProcessingNotFound, ProcessingService,
 )
+from app.storage.database import get_session_factory
 
 router = APIRouter(prefix="/api/v1", tags=["document-processing"])
 

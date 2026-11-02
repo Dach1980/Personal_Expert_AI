@@ -5,14 +5,13 @@ from io import BytesIO
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, text
 
 from app.processing.service import ProcessingConflict, ProcessingService
 from app.storage.database import build_session_factory, set_tenant_context
 from app.storage.file_store import LocalFileStore
 from app.storage.models import DocumentVersion, ProcessingArtifact, ProcessingRun
 from app.storage.upload_service import DocumentUploadService
-from sqlalchemy import text
 
 DATABASE_URL = os.getenv("APP_DATABASE_URL") or os.getenv("DATABASE_URL")
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="PostgreSQL DATABASE_URL is required")
