@@ -1,4 +1,6 @@
 import hashlib
+import os
+import time
 
 import pytest
 
@@ -75,3 +77,18 @@ def test_open_verified_returns_rewound_verified_handle(tmp_path):
         expected_size=stored.size_bytes,
     ) as source:
         assert source.read() == b"%PDF-1.7"
+
+
+
+def test_cleanup_staging_removes_only_old_regular_files(tmp_path):
+    store = LocalFileStore(tmp_path / "objects")
+    stale = store.staging / "abandoned.tmp"
+    fresh = store.staging / "active.tmp"
+    stale.write_bytes(b"stale")
+    fresh.write_bytes(b"active")
+    old_time = time.time() - 3600
+    os.utime(stale, (old_time, old_time))
+
+    assert store.cleanup_staging(max_age_seconds=600) == 1
+    assert not stale.exists()
+    assert fresh.exists()
