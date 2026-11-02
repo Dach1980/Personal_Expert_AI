@@ -345,8 +345,8 @@ class UploadOperation(Base, TimestampMixin):
         ),
         ForeignKeyConstraint(
             ["tenant_id", "project_id", "created_by"],
-            ["project_memberships.tenant_id", "project_memberships.project_id", "project_memberships.user_id"],
-            name="fk_upload_operations_creator_project_member",
+            ["memberships.tenant_id", "memberships.user_id"],
+            name="fk_upload_operations_creator_tenant_member",
         ),
         ForeignKeyConstraint(
             ["tenant_id", "project_id", "document_version_id"],
