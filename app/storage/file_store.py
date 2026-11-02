@@ -35,7 +35,9 @@ class LocalFileStore:
     def __init__(self, root: str | Path) -> None:
         self.root = Path(root).expanduser().resolve()
         self.staging = self.root / ".staging"
-        self.root.mkdir(parents=True, exist_ok=True)
+        self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if os.name != "nt":
+            os.chmod(self.root, 0o700)
         self.staging.mkdir(mode=0o700, parents=True, exist_ok=True)
 
     def _target(self, storage_key: str) -> Path:
@@ -48,7 +50,7 @@ class LocalFileStore:
         resolved_parent = target.parent.resolve()
         if not resolved_parent.is_relative_to(self.root):
             raise ValueError("Storage key escapes the configured root")
-        if target.exists() and target.is_symlink():
+        if target.is_symlink():
             raise ValueError("Storage target must not be a symbolic link")
         return target
 
@@ -124,6 +126,25 @@ class LocalFileStore:
         if not target.is_file() or target.is_symlink():
             raise FileNotFoundError(storage_key)
         return target.open("rb")
+
+    def open_verified(
+        self, storage_key: str, *, expected_checksum: str, expected_size: int
+    ) -> BinaryIO:
+        """Verify the exact opened file handle and rewind it for a subsequent download."""
+        source = self.open(storage_key)
+        digest = hashlib.sha256()
+        size = 0
+        try:
+            while chunk := source.read(1024 * 1024):
+                digest.update(chunk)
+                size += len(chunk)
+            if digest.hexdigest() != expected_checksum or size != expected_size:
+                raise StorageIntegrityError("Stored source checksum or size does not match metadata")
+            source.seek(0)
+            return source
+        except Exception:
+            source.close()
+            raise
 
     def delete(self, storage_key: str, *, missing_ok: bool = True) -> None:
         """Delete one validated object key; callers must first verify database references."""
