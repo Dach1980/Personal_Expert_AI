@@ -1,7 +1,5 @@
 """ASGI request-body limit for multipart document uploads."""
 
-from __future__ import annotations
-
 class _UploadBodyTooLarge(Exception):
     pass
 
