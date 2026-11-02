@@ -213,6 +213,8 @@ class ProcessingService:
     def heartbeat(
         self, tenant_id: UUID, run_id: UUID, worker_id: str, *, lease_seconds: int = 300
     ) -> ProcessingRun:
+        if not 15 <= lease_seconds <= 3600:
+            raise ValueError("lease_seconds must be between 15 and 3600")
         now = datetime.now(timezone.utc)
         with self.session_factory() as session, session.begin():
             set_tenant_context(session, tenant_id)
@@ -238,8 +240,16 @@ class ProcessingService:
             raise ValueError("Invalid artifact SHA-256")
         if size_bytes <= 0 or not storage_key.strip() or len(storage_key) > 500:
             raise ValueError("Invalid artifact storage metadata")
-        if storage_key.startswith(("/", "\\")) or ".." in storage_key.replace("\\", "/").split("/"):
+        normalized_key = storage_key.replace("\\", "/")
+        if (
+            normalized_key.startswith("/") or re.match(r"^[A-Za-z]:", normalized_key)
+            or any(part in {"", ".", ".."} for part in normalized_key.split("/"))
+        ):
             raise ValueError("Unsafe artifact storage key")
+        if not media_type.strip() or len(media_type) > 150:
+            raise ValueError("Invalid artifact media type")
+        if metadata is not None and not isinstance(metadata, dict):
+            raise ValueError("Artifact metadata must be an object")
         now = datetime.now(timezone.utc)
         with self.session_factory() as session, session.begin():
             set_tenant_context(session, tenant_id)

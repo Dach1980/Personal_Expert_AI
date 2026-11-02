@@ -1,13 +1,12 @@
 """Authenticated API for queueing and inspecting document processing runs."""
 
+from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy.orm import Session
-
 from app.api.auth import Principal, get_current_principal
-from app.storage.database import get_session, get_session_factory
+from app.storage.database import get_session_factory
 from app.processing.service import (
     ProcessingAccessDenied, ProcessingConflict, ProcessingNotFound, ProcessingService,
 )
@@ -32,9 +31,9 @@ class ProcessingRunRead(BaseModel):
     manifest: dict[str, object]
     attempt_count: int
     max_attempts: int
-    available_at: object
-    started_at: object | None
-    finished_at: object | None
+    available_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
     error_code: str | None
     error_message: str | None
 
@@ -47,6 +46,7 @@ class ProcessingRunRead(BaseModel):
 def enqueue_processing_run(
     tenant_id: UUID, project_id: UUID, document_id: UUID, version_id: UUID,
     payload: ProcessingRunCreate,
+    response: Response,
     idempotency_key: str = Header(alias="Idempotency-Key"),
     principal: Principal = Depends(get_current_principal),
 ):
@@ -59,7 +59,7 @@ def enqueue_processing_run(
             pipeline_version=payload.pipeline_version,
             parser_manifest=payload.parser_manifest, max_attempts=payload.max_attempts,
         )
-        # The API response is stable for idempotent replay; callers can distinguish it by status.
+        response.status_code = status.HTTP_200_OK if replayed else status.HTTP_201_CREATED
         return run
     except ProcessingAccessDenied as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from None

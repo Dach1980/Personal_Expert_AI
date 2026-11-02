@@ -12,17 +12,25 @@ from app.storage.database import build_session_factory, set_tenant_context
 from app.storage.file_store import LocalFileStore
 from app.storage.models import DocumentVersion, ProcessingArtifact, ProcessingRun
 from app.storage.upload_service import DocumentUploadService
-from tests.integration.test_postgres_tenant_isolation import _create_upload_fixture
+from sqlalchemy import text
 
 DATABASE_URL = os.getenv("APP_DATABASE_URL") or os.getenv("DATABASE_URL")
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="PostgreSQL DATABASE_URL is required")
 
 
 def _fixture():
+    tenant_id, project_id, user_id, document_id = uuid4(), uuid4(), uuid4(), uuid4()
     engine = create_engine(os.getenv("DATABASE_URL") or DATABASE_URL)
     try:
-        with engine.connect() as connection:
-            return _create_upload_fixture(connection)
+        with engine.begin() as connection:
+            connection.execute(text("SELECT set_config('app.tenant_id', :tenant, true)"), {"tenant": str(tenant_id)})
+            connection.execute(text("INSERT INTO tenants (id, name, status) VALUES (:id, 'Processing test', 'active')"), {"id": tenant_id})
+            connection.execute(text("INSERT INTO users (id, login, status) VALUES (:id, :login, 'active')"), {"id": user_id, "login": f"processing-{user_id}@test.local"})
+            connection.execute(text("INSERT INTO memberships (id, tenant_id, user_id, role, status) VALUES (:id, :tenant, :user, 'member', 'active')"), {"id": uuid4(), "tenant": tenant_id, "user": user_id})
+            connection.execute(text("INSERT INTO projects (id, tenant_id, name, status, metadata) VALUES (:id, :tenant, 'Processing project', 'active', '{}'::jsonb)"), {"id": project_id, "tenant": tenant_id})
+            connection.execute(text("INSERT INTO project_memberships (id, tenant_id, project_id, user_id, role, status) VALUES (:id, :tenant, :project, :user, 'engineer', 'active')"), {"id": uuid4(), "tenant": tenant_id, "project": project_id, "user": user_id})
+            connection.execute(text("INSERT INTO documents (id, tenant_id, project_id, title, status) VALUES (:id, :tenant, :project, 'Processing source', 'active')"), {"id": document_id, "tenant": tenant_id, "project": project_id})
+        return tenant_id, project_id, user_id, document_id
     finally:
         engine.dispose()
 
