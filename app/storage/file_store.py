@@ -104,6 +104,8 @@ class LocalFileStore:
                 os.link(temp_path, target)
             except FileExistsError as exc:
                 raise StorageConflictError(storage_key) from exc
+            if os.name != "nt":
+                os.chmod(target, 0o400)
             temp_path.unlink()
             temp_path = None
             self._fsync_directory(target.parent)
