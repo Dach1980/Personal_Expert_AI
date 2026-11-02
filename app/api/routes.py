@@ -33,7 +33,6 @@ from app.storage.upload_service import (
     UploadValidationError,
 )
 
-
 router = APIRouter(prefix="/api/v1", tags=["workspace"])
 
 
