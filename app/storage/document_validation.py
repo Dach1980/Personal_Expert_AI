@@ -37,7 +37,7 @@ def detect_document_type(path: Path, original_filename: str) -> str:
                 raise UnsupportedDocumentError("Office package contains too many entries")
             total_uncompressed = 0
             for item in archive.infolist():
-                if item.filename.startswith("/") or ".." in Path(item.filename.replace("\\\\", "/")).parts:
+                if item.filename.startswith("/") or ".." in Path(item.filename.replace("\\", "/")).parts:
                     raise UnsupportedDocumentError("Unsafe path in Office package")
                 total_uncompressed += item.file_size
                 if total_uncompressed > 1024 * 1024 * 1024:
