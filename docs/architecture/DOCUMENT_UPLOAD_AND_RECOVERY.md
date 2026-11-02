@@ -75,7 +75,7 @@ receiving -> quarantined -> publishing -> completed
      +-------------+-------------+----> failed (validation/terminal failure)
 ```
 
-The upload operation row is committed before file ingestion. The quarantine object is written and hashed, validated, and its checksum/size are committed to the operation. The operation is then committed as `publishing` before the final object is atomically published. Only after the final object is re-verified does one PostgreSQL transaction insert DocumentVersion, update Document.current_version_id, attach the version to UploadOperation and mark the operation completed.
+The upload operation row is committed before file ingestion. The quarantine object is written and hashed, validated, and its checksum/size are committed to the operation. The operation is then committed as `publishing` before the final object is atomically published. Only after the final object is re-verified does one PostgreSQL transaction insert DocumentVersion, update Document.current_version_id, attach the version to UploadOperation, write the `document.version_uploaded` AuditEvent and mark the operation completed.
 
 PostgreSQL and the filesystem do not share a distributed transaction. Recovery is therefore explicit:
 
