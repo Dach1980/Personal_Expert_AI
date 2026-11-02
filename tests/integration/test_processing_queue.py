@@ -140,7 +140,7 @@ def test_queue_rejects_version_without_completed_upload_operation(tmp_path):
 
 
 def test_worker_extracts_pdf_and_persists_source_fragments(tmp_path, monkeypatch):
-    import fitz
+    import pymupdf as fitz
 
     from app.processing.worker import DocumentProcessingWorker
     from app.storage.models import SourceFragment

@@ -2,7 +2,7 @@
 import base64
 from io import BytesIO
 
-import fitz
+import pymupdf as fitz
 from docx import Document
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage

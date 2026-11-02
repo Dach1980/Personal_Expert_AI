@@ -70,7 +70,7 @@ def _asset(assets: list[EmbeddedAsset], name: str, media_type: str, data: bytes,
 
 def extract_pdf(source: bytes) -> ExtractionResult:
     try:
-        import fitz
+        import pymupdf as fitz
     except ImportError as exc:
         raise RuntimeError("PDF adapter requires the 'processing' extra (PyMuPDF)") from exc
 
