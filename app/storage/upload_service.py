@@ -15,13 +15,14 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.storage.document_validation import detect_document_type
+from app.storage.document_validation import UnsupportedDocumentError, detect_document_type
 from app.storage.file_store import (
     LocalFileStore,
     StorageConflictError,
     StorageIntegrityError,
 )
 from app.storage.models import (
+    AuditEvent,
     Document,
     DocumentVersion,
     Membership,
@@ -215,11 +216,17 @@ class DocumentUploadService:
                 )
                 if version is None:
                     raise StorageIntegrityError("Completed upload has no registered document version")
-                self.store.verify(
-                    version.storage_key,
-                    expected_checksum=version.checksum_sha256,
-                    expected_size=version.size_bytes,
-                )
+                try:
+                    self.store.verify(
+                        version.storage_key,
+                        expected_checksum=version.checksum_sha256,
+                        expected_size=version.size_bytes,
+                    )
+                except (StorageIntegrityError, FileNotFoundError) as exc:
+                    self._record_integrity_failure(
+                        tenant_id, version.id, "idempotent_replay_source_mismatch", user_id
+                    )
+                    raise StorageIntegrityError("Registered source failed integrity verification") from exc
                 return UploadResult(version=version, replayed=True)
 
         operation_id = uuid4()
@@ -363,6 +370,40 @@ class DocumentUploadService:
             operation.status = "completed"
             operation.completed_at = datetime.now(timezone.utc)
 
+    def _record_integrity_failure(
+        self, tenant_id: UUID, version_id: UUID, reason: str,
+        actor_user_id: UUID | None = None,
+    ) -> None:
+        from app.storage.database import set_tenant_context
+
+        with self.session_factory() as session, session.begin():
+            set_tenant_context(session, tenant_id)
+            version = session.scalar(
+                select(DocumentVersion).where(
+                    DocumentVersion.tenant_id == tenant_id,
+                    DocumentVersion.id == version_id,
+                )
+            )
+            if version is None or version.status == "integrity_failed":
+                return
+            version.status = "integrity_failed"
+            session.add(
+                AuditEvent(
+                    id=uuid4(),
+                    tenant_id=tenant_id,
+                    actor_user_id=actor_user_id,
+                    action="document.source_integrity_failed",
+                    target_type="document_version",
+                    target_id=version.id,
+                    outcome="failure",
+                    details={
+                        "reason": reason,
+                        "expected_checksum_sha256": version.checksum_sha256,
+                        "expected_size_bytes": version.size_bytes,
+                    },
+                )
+            )
+
     def _mark_failed(self, operation_id: UUID, tenant_id: UUID, code: str, message: str) -> None:
         from app.storage.database import set_tenant_context
 
@@ -401,11 +442,17 @@ class DocumentUploadService:
         version = self.get_version(
             tenant_id, project_id, document_id, version_id, user_id
         )
-        stream = self.store.open_verified(
-            version.storage_key,
-            expected_checksum=version.checksum_sha256,
-            expected_size=version.size_bytes,
-        )
+        try:
+            stream = self.store.open_verified(
+                version.storage_key,
+                expected_checksum=version.checksum_sha256,
+                expected_size=version.size_bytes,
+            )
+        except (StorageIntegrityError, FileNotFoundError) as exc:
+            self._record_integrity_failure(
+                tenant_id, version.id, "download_source_mismatch", user_id
+            )
+            raise StorageIntegrityError("Registered source failed integrity verification") from exc
         return version, stream
 
     def reconcile(
@@ -428,13 +475,6 @@ class DocumentUploadService:
                 )
             )
             operation_ids = [item.id for item in operations]
-            known_keys = {
-                item.storage_key for item in session.scalars(
-                    select(DocumentVersion).where(DocumentVersion.tenant_id == tenant_id)
-                )
-            }
-            known_keys.update(item.quarantine_key for item in operations)
-            known_keys.update(item.storage_key for item in operations)
 
         recovered = failed = missing = 0
         for operation_id in operation_ids:
@@ -456,6 +496,8 @@ class DocumentUploadService:
                             continue
                         path = self.store.root / operation.quarantine_key
                         digest, size = _hash_path(path)
+                        if size <= 0 or size > self.max_bytes:
+                            raise UploadValidationError("Quarantined file violates the configured size limit")
                         media_type = detect_document_type(path, operation.original_filename)
                         operation.checksum_sha256 = digest
                         operation.size_bytes = size
@@ -463,6 +505,16 @@ class DocumentUploadService:
                         operation.status = "quarantined"
                 self._publish_and_finalize(operation_id, tenant_id)
                 recovered += 1
+            except (UnsupportedDocumentError, UploadValidationError) as exc:
+                with self.session_factory() as session, session.begin():
+                    set_tenant_context(session, tenant_id)
+                    operation = session.get(UploadOperation, operation_id)
+                    if operation is not None and operation.status != "completed":
+                        operation.status = "failed"
+                        operation.error_code = "reconciliation_validation_failed"
+                        operation.error_message = str(exc)[:2000]
+                        self.store.delete(operation.quarantine_key)
+                failed += 1
             except Exception as exc:
                 with self.session_factory() as session, session.begin():
                     set_tenant_context(session, tenant_id)
@@ -483,7 +535,15 @@ class DocumentUploadService:
                     UploadOperation.status == "completed",
                 )
             ))
-            known_keys.update(item.storage_key for item in versions)
+            active_operations = list(session.scalars(
+                select(UploadOperation).where(
+                    UploadOperation.tenant_id == tenant_id,
+                    UploadOperation.status.in_(["receiving", "quarantined", "publishing"]),
+                )
+            ))
+            known_keys = {item.storage_key for item in versions}
+            known_keys.update(item.storage_key for item in active_operations)
+            known_keys.update(item.quarantine_key for item in active_operations)
             for version in versions:
                 try:
                     self.store.verify(
@@ -493,24 +553,26 @@ class DocumentUploadService:
                     )
                 except (StorageIntegrityError, FileNotFoundError):
                     missing += 1
+                    if version.status != "integrity_failed":
+                        version.status = "integrity_failed"
+                        session.add(
+                            AuditEvent(
+                                id=uuid4(),
+                                tenant_id=tenant_id,
+                                actor_user_id=None,
+                                action="document.source_integrity_failed",
+                                target_type="document_version",
+                                target_id=version.id,
+                                outcome="failure",
+                                details={
+                                    "reason": "reconciliation_source_mismatch",
+                                    "expected_checksum_sha256": version.checksum_sha256,
+                                    "expected_size_bytes": version.size_bytes,
+                                },
+                            )
+                        )
             for operation in completed_operations:
                 self.store.delete(operation.quarantine_key)
-            known_keys.update(
-                item.storage_key for item in session.scalars(
-                    select(UploadOperation).where(
-                        UploadOperation.tenant_id == tenant_id,
-                        UploadOperation.status.in_(["receiving", "quarantined", "publishing"]),
-                    )
-                )
-            )
-            known_keys.update(
-                item.quarantine_key for item in session.scalars(
-                    select(UploadOperation).where(
-                        UploadOperation.tenant_id == tenant_id,
-                        UploadOperation.status.in_(["receiving", "quarantined", "publishing"]),
-                    )
-                )
-            )
         tenant_prefix = f"{tenant_id}/"
         orphan_keys = tuple(
             key for key in self.store.iter_objects()
