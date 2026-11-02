@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -13,8 +13,14 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.storage.database import set_tenant_context
 from app.storage.models import (
-    AuditEvent, Document, DocumentVersion, Membership, ProcessingArtifact,
-    ProcessingRun, ProjectMembership, UploadOperation,
+    AuditEvent,
+    Document,
+    DocumentVersion,
+    Membership,
+    ProcessingArtifact,
+    ProcessingRun,
+    ProjectMembership,
+    UploadOperation,
 )
 
 
@@ -186,7 +192,7 @@ class ProcessingService:
             raise ValueError("Invalid worker_id")
         if not 15 <= lease_seconds <= 3600:
             raise ValueError("lease_seconds must be between 15 and 3600")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         with self.session_factory() as session, session.begin():
             set_tenant_context(session, tenant_id)
             candidates = list(session.scalars(
