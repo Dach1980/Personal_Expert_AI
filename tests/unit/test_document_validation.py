@@ -70,3 +70,14 @@ def test_macro_enabled_office_package_is_rejected(tmp_path):
         archive.writestr("word/vbaProject.bin", b"macro")
     with pytest.raises(UnsupportedDocumentError, match="Macro-enabled"):
         detect_document_type(path, "macro.docx")
+
+
+
+def test_drive_qualified_office_archive_paths_are_rejected(tmp_path):
+    path = tmp_path / "drive-path.docx"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<Types/>")
+        archive.writestr("word/document.xml", "<document/>")
+        archive.writestr("C:/outside.txt", "unsafe")
+    with pytest.raises(UnsupportedDocumentError, match="Unsafe path"):
+        detect_document_type(path, "drive-path.docx")
