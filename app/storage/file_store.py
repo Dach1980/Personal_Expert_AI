@@ -34,6 +34,8 @@ class LocalFileStore:
 
     def __init__(self, root: str | Path) -> None:
         self.root = Path(root).expanduser().resolve()
+        if self.root == Path(self.root.anchor):
+            raise ValueError("Storage root must not be a filesystem root")
         self.staging = self.root / ".staging"
         self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         if os.name != "nt":
