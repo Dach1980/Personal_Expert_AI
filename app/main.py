@@ -2,6 +2,9 @@
 
 from fastapi import FastAPI
 
+from app.api.middleware import UploadBodyLimitMiddleware
+from app.storage.config import max_upload_bytes
+
 from app.api.routes import router as api_router
 
 app = FastAPI(
@@ -11,6 +14,7 @@ app = FastAPI(
 )
 
 
+app.add_middleware(UploadBodyLimitMiddleware, max_bytes=max_upload_bytes())
 app.include_router(api_router)
 
 
