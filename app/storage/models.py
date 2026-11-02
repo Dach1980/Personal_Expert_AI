@@ -323,3 +323,51 @@ class AuditEvent(Base):
     outcome: Mapped[str] = mapped_column(String(30), nullable=False, default="success")
     details: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+
+class UploadOperation(Base, TimestampMixin):
+    """Durable state for an idempotent, recoverable multipart upload."""
+
+    __tablename__ = "upload_operations"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "project_id", "idempotency_key", name="uq_upload_operations_idempotency"),
+        CheckConstraint(
+            "status IN ('receiving','quarantined','publishing','completed','failed')",
+            name="ck_upload_operations_status",
+        ),
+        CheckConstraint("size_bytes IS NULL OR size_bytes > 0", name="ck_upload_operations_size"),
+        ForeignKeyConstraint(
+            ["tenant_id", "project_id", "document_id"],
+            ["documents.tenant_id", "documents.project_id", "documents.id"],
+            name="fk_upload_operations_document_parent",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "project_id", "created_by"],
+            ["project_memberships.tenant_id", "project_memberships.project_id", "project_memberships.user_id"],
+            name="fk_upload_operations_creator_project_member",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "project_id", "document_version_id"],
+            ["document_versions.tenant_id", "document_versions.project_id", "document_versions.id"],
+            name="fk_upload_operations_version_parent",
+        ),
+        Index("ix_upload_operations_status_created", "status", "created_at"),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    tenant_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("tenants.id"), nullable=False)
+    project_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("projects.id"), nullable=False)
+    document_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("documents.id"), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_by: Mapped[UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="receiving")
+    original_filename: Mapped[str] = mapped_column(String(500), nullable=False)
+    media_type: Mapped[str | None] = mapped_column(String(150))
+    size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    quarantine_key: Mapped[str] = mapped_column(String(500), nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(500), nullable=False)
+    document_version_id: Mapped[UUID | None] = mapped_column(Uuid)
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
