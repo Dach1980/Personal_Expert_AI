@@ -46,3 +46,27 @@ def test_unsafe_windows_archive_paths_are_rejected(tmp_path):
         archive.writestr("..\\outside.txt", "unsafe")
     with pytest.raises(UnsupportedDocumentError):
         detect_document_type(path, "unsafe.docx")
+
+
+
+def test_external_office_relationships_are_rejected(tmp_path):
+    path = tmp_path / "external.docx"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<Types/>")
+        archive.writestr("word/document.xml", "<document/>")
+        archive.writestr(
+            "word/_rels/document.xml.rels",
+            '<Relationships><Relationship TargetMode="External" Target="https://example.invalid"/></Relationships>',
+        )
+    with pytest.raises(UnsupportedDocumentError, match="External"):
+        detect_document_type(path, "external.docx")
+
+
+def test_macro_enabled_office_package_is_rejected(tmp_path):
+    path = tmp_path / "macro.docx"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<Types/>")
+        archive.writestr("word/document.xml", "<document/>")
+        archive.writestr("word/vbaProject.bin", b"macro")
+    with pytest.raises(UnsupportedDocumentError, match="Macro-enabled"):
+        detect_document_type(path, "macro.docx")
