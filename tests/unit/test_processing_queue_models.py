@@ -7,7 +7,7 @@ def test_processing_run_has_durable_queue_and_lease_fields():
     assert {
         "idempotency_key", "attempt_count", "max_attempts", "available_at",
         "lease_owner", "lease_expires_at", "heartbeat_at",
-    } <= set(table.columns)
+    } <= set(table.columns.keys())
     constraints = {item.name for item in table.constraints}
     assert "uq_processing_runs_idempotency" in constraints
     assert "ck_processing_runs_running_lease" in constraints

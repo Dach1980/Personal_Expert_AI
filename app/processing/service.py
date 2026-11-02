@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import datetime, timedelta, timezone
-import json
 from typing import Any
 from uuid import UUID, uuid4
 
