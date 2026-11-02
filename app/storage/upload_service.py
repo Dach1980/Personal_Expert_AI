@@ -367,6 +367,22 @@ class DocumentUploadService:
                 )
                 session.add(version)
                 session.flush()
+                session.add(
+                    AuditEvent(
+                        id=uuid4(),
+                        tenant_id=tenant_id,
+                        actor_user_id=operation.created_by,
+                        action="document.version_uploaded",
+                        target_type="document_version",
+                        target_id=version.id,
+                        outcome="success",
+                        details={
+                            "upload_operation_id": str(operation.id),
+                            "checksum_sha256": operation.checksum_sha256,
+                            "size_bytes": operation.size_bytes,
+                        },
+                    )
+                )
             document.current_version_id = version.id
             operation.document_version_id = version.id
             operation.status = "completed"
