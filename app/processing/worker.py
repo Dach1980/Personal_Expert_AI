@@ -132,7 +132,7 @@ class DocumentProcessingWorker:
             key = f"{artifact_prefix}/assets/{hashlib.sha256(asset.data).hexdigest()}-{asset.name}"
             stored = self._put_idempotent(key, asset.data, max_bytes=25 * 1024 * 1024)
             artifact_entries.append({
-                "artifact_type": "embedded_image", "storage_key": key,
+                "artifact_type": "rendered_page" if asset.name.startswith("pdf-page-") else "embedded_image", "storage_key": key,
                 "checksum_sha256": stored.checksum_sha256, "size_bytes": stored.size_bytes,
                 "media_type": asset.media_type, "metadata": {
                     "source_version_id": str(version_id), "locator": asset.locator,

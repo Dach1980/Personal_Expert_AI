@@ -228,6 +228,31 @@ def enrich_pdf(
     finally:
         document.close()
 
+    embedded_ocr_count = 0
+    for asset in result.assets:
+        if not asset.media_type.startswith("image/"):
+            continue
+        inspected = _ocr_image(asset.data, language=ocr_language, config=ocr_config)
+        if not inspected.get("available"):
+            continue
+        embedded_ocr_count += 1
+        image_text = str(inspected.get("text", "")).strip()
+        if not image_text:
+            continue
+        digest = hashlib.sha256(image_text.encode("utf-8")).hexdigest()
+        new_fragments.append(Fragment(
+            "image_ocr",
+            {**asset.locator, "asset_name": asset.name,
+             "coordinate_space": "embedded-image-pixels"},
+            image_text, digest, "tesseract-image-ocr",
+            str(inspected.get("version", "unknown")),
+            {
+                "language": ocr_language,
+                "word_count": inspected.get("word_count", 0),
+                "words": inspected.get("words", []),
+            },
+        ))
+
     if len(result.assets) + len(new_assets) > MAX_EMBEDDED_ASSETS:
         raise ValueError("PDF rendering exceeds the embedded asset count safety limit")
     if any(len(asset.data) > MAX_EMBEDDED_ASSET_BYTES for asset in new_assets):
@@ -240,6 +265,6 @@ def enrich_pdf(
         "rendered_bytes": render_bytes_total,
         "ocr_language": ocr_language, "ocr_engine_available": ocr_available,
         "ocr_pages": sum(1 for item in page_models if item["native_text_quality"]["ocr_recommended"]),
-        "page_model_schema_version": 1,
+        "page_model_schema_version": 1,\n        "embedded_images_ocr_inspected": embedded_ocr_count,
     }
     return result

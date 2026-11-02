@@ -34,10 +34,9 @@ density. Native PDF text remains preferred; duplicate OCR lines/words are filter
 `ocr_text` fragments are emitted. Missing Python OCR packages or Tesseract are recorded as
 unavailable in the structured page model; rendering and native extraction still succeed.
 
-Embedded raster images are independently inspected for dimensions and OCR text when the OCR
-extra is installed. OCR word boxes on embedded images use image-pixel coordinates and retain
-the original PDF/DOCX/XLSX/PPTX locator. This provides deterministic text and geometry evidence,
-not semantic image captioning. A local vision-language model adapter for interpreting symbols,
+Embedded raster images extracted from PDFs are independently inspected for OCR text when the
+OCR extra is installed. OCR word boxes use embedded-image pixel coordinates and retain the
+original PDF locator. This provides deterministic text evidence, not semantic image captioning. A local vision-language model adapter for interpreting symbols,
 engineering drawings and visual relationships remains a separate benchmark-driven task; no
 cloud vision service is called.
 
