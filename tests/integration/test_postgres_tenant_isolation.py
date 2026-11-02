@@ -274,6 +274,10 @@ def test_viewer_cannot_upload_documents(connection, tmp_path):
     tenant_id, project_id, user_id, document_id = _create_upload_fixture(connection)
     with connection.begin():
         connection.execute(
+            text("SELECT set_config('app.tenant_id', :tenant, true)"),
+            {"tenant": str(tenant_id)},
+        )
+        connection.execute(
             text("""UPDATE project_memberships SET role = 'viewer'
                     WHERE tenant_id = :tenant AND project_id = :project AND user_id = :user"""),
             {"tenant": tenant_id, "project": project_id, "user": user_id},
