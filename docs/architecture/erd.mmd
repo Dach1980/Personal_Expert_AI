@@ -8,6 +8,11 @@ erDiagram
     USERS ||--o{ PROJECT_MEMBERSHIPS : receives
     PROJECTS ||--o{ DOCUMENTS : contains
     DOCUMENTS ||--o{ DOCUMENT_VERSIONS : versions
+    TENANTS ||--o{ UPLOAD_OPERATIONS : scopes
+    PROJECTS ||--o{ UPLOAD_OPERATIONS : scopes
+    DOCUMENTS ||--o{ UPLOAD_OPERATIONS : receives
+    USERS ||--o{ UPLOAD_OPERATIONS : initiates
+    DOCUMENT_VERSIONS |o--o| UPLOAD_OPERATIONS : completes_as
     DOCUMENT_VERSIONS ||--o{ PROCESSING_RUNS : processed_by
     PROCESSING_RUNS ||--o{ PROCESSING_ARTIFACTS : produces
     DOCUMENT_VERSIONS ||--o{ SOURCE_FRAGMENTS : contains
@@ -51,6 +56,17 @@ erDiagram
         varchar checksum_sha256
         varchar storage_key
         bigint size_bytes }
+    UPLOAD_OPERATIONS { uuid id PK
+        uuid tenant_id FK
+        uuid project_id FK
+        uuid document_id FK
+        uuid created_by FK
+        varchar idempotency_key UK
+        varchar status
+        varchar quarantine_key
+        varchar storage_key
+        varchar checksum_sha256
+        uuid document_version_id FK }
     PROCESSING_RUNS { uuid id PK
         uuid document_version_id FK
         varchar pipeline_version
