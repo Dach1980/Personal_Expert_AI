@@ -55,6 +55,7 @@ class UploadResult:
 @dataclass(frozen=True, slots=True)
 class ReconciliationReport:
     inspected: int
+    staging_removed: int
     recovered: int
     failed: int
     missing: int
@@ -415,6 +416,7 @@ class DocumentUploadService:
         if stale_after_seconds < 0:
             raise ValueError("stale_after_seconds cannot be negative")
         cutoff = datetime.now(timezone.utc) - timedelta(seconds=stale_after_seconds)
+        staging_removed = self.store.cleanup_staging()
         with self.session_factory() as session, session.begin():
             set_tenant_context(session, tenant_id)
             operations = list(
@@ -517,6 +519,7 @@ class DocumentUploadService:
         )
         return ReconciliationReport(
             inspected=len(operation_ids),
+            staging_removed=staging_removed,
             recovered=recovered,
             failed=failed,
             missing=missing,
