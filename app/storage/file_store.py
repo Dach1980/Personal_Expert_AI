@@ -6,6 +6,7 @@ import hashlib
 import os
 import re
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO, Iterable
@@ -170,7 +171,7 @@ class LocalFileStore:
         """Remove abandoned temporary writes older than the safety retention window."""
         if max_age_seconds < 0:
             raise ValueError("max_age_seconds cannot be negative")
-        cutoff = __import__("time").time() - max_age_seconds
+        cutoff = time.time() - max_age_seconds
         removed = 0
         for path in self.staging.iterdir():
             if path.is_file() and not path.is_symlink() and path.stat().st_mtime < cutoff:
