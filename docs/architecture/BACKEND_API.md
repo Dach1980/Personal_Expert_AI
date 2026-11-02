@@ -1,7 +1,7 @@
 # Backend API — контракты UI и backend
 
 - Статус: проект спецификации API, версия 1.0
-- Дата: 2026-11-01
+- Дата: 2026-11-02
 - Базовый префикс: /api/v1
 
 ## 1. Назначение
@@ -64,6 +64,23 @@ Backend является единственным владельцем доме�
 - DELETE /api/v1/document-versions/{version_id}
 
 Загрузка может использовать multipart/form-data либо двухшаговый upload session. Сервер проверяет фактический тип содержимого, размер, checksum, имя и права. Клиентское расширение файла не является достаточной проверкой формата.
+
+#### Реализованный контракт загрузки и скачивания оригиналов
+
+Текущая реализация использует tenant-scoped URL, привязанный к существующему Document:
+
+- POST `/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions`
+- GET `/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}/content`
+
+Upload принимает `multipart/form-data` с полем `file` и обязательным заголовком `Idempotency-Key` (8–128 символов ASCII из allowlist). Для первого успешного приёма возвращается HTTP 201 и метаданные DocumentVersion; идентичный повтор с тем же ключом, документом, именем и байтами возвращает HTTP 200 с той же версией. Повторное использование ключа с иным содержимым или незавершённой операцией возвращает HTTP 409.
+
+Разрешённые начальные форматы: PDF, DOCX, XLSX и PPTX. MIME определяется сервером по сигнатуре и структуре OOXML package; клиентский Content-Type не считается доверенным. Ограничение по умолчанию — 100 MiB. Проверка active tenant membership и project role выполняется на backend. Viewer/reviewer не могут загружать документы; чтение оригинала доступно участникам проекта с read permission.
+
+Download перед началом передачи открывает файл, проверяет SHA-256 и размер по зарегистрированной DocumentVersion и только затем отдаёт поток. При отсутствии оригинала или несовпадении checksum возвращается HTTP 503; файл не выдаётся.
+
+UploadOperation хранит durable state machine и idempotency key. После сбоя состояния receiving/quarantined/publishing восстанавливаются tenant-scoped командой `python -m app.storage.reconcile --tenant-id <TENANT_UUID>`. PostgreSQL и файловая система не считаются одной транзакцией; согласование реализовано через отдельные фиксируемые фазы и reconciliation.
+
+Подробности: [DOCUMENT_UPLOAD_AND_RECOVERY.md](DOCUMENT_UPLOAD_AND_RECOVERY.md).
 
 ### Поиск и знания
 - POST /api/v1/projects/{project_id}/search
