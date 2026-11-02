@@ -61,6 +61,18 @@ Run tenant-scoped recovery/integrity checks after an interrupted process or as a
 
 The command resumes interrupted uploads, verifies registered originals, removes completed quarantine copies and reports orphan files. See [Document Upload and Recovery](docs/architecture/DOCUMENT_UPLOAD_AND_RECOVERY.md) for API examples and failure semantics.
 
+### Document extraction pipeline
+
+The first local extraction worker and format adapters are implemented for PDF (PyMuPDF), DOCX (python-docx), XLSX (openpyxl) and PPTX (python-pptx). Install them with:
+
+    pip install -e ".[database,processing]"
+
+The worker verifies the original file checksum before parsing, writes extraction manifests and embedded images to local storage, and persists provenance-linked `SourceFragment` rows. Start one job or continuous polling with:
+
+    personal-expert-ai-worker --tenant-id <TENANT_UUID> --worker-id local-worker-01 --watch
+
+See [Document Extraction Pipeline](docs/architecture/DOCUMENT_EXTRACTION_PIPELINE.md) for adapter coverage, locator formats and current limitations. OCR, PDF page rendering, complete vector extraction and full normalization of complex Office layouts remain future work.
+
 The authenticated API accepts signed HS256 JWTs issued by a trusted identity provider. Configure `JWT_SECRET` (at least 32 characters), `JWT_ISSUER` and `JWT_AUDIENCE`. Tokens must carry user UUID in `sub` and tenant UUID in `tenant_id`. The application does not issue tokens or manage passwords yet.
 
 The CI workflow provisions PostgreSQL 16, applies and reverts migrations, checks ORM/schema parity, runs RLS tests using a restricted non-owner database role, and runs the unit test suite. Do not use the placeholder password in docker-compose for any exposed or shared environment.
