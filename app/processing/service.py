@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta, timezone
+import json
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.storage.database import set_tenant_context
@@ -75,11 +76,23 @@ class ProcessingService:
         if not 1 <= max_attempts <= 20:
             raise ValueError("max_attempts must be between 1 and 20")
         parsers = parser_manifest or {}
-        if not isinstance(parsers, dict):
-            raise ValueError("parser_manifest must be an object")
+        if not isinstance(parsers, dict) or any(
+            not isinstance(key, str) or not isinstance(value, str)
+            or not key.strip() or not value.strip()
+            for key, value in parsers.items()
+        ):
+            raise ValueError("parser_manifest must map format names to non-empty version strings")
+        if len(json.dumps(parsers, sort_keys=True, separators=(",", ":"))) > 32768:
+            raise ValueError("parser_manifest exceeds 32 KiB")
 
         with self.session_factory() as session, session.begin():
             self._authorize(session, tenant_id, project_id, user_id, write=True)
+            # Serialize concurrent requests that reuse the same tenant/project key.
+            lock_key = f"{tenant_id}:{project_id}:{idempotency_key}"
+            session.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:lock_key, 0))"),
+                {"lock_key": lock_key},
+            )
             existing = session.scalar(select(ProcessingRun).where(
                 ProcessingRun.tenant_id == tenant_id,
                 ProcessingRun.project_id == project_id,
@@ -90,6 +103,7 @@ class ProcessingService:
                     existing.document_version_id == version_id
                     and existing.pipeline_name == pipeline_name
                     and existing.pipeline_version == pipeline_version
+                    and existing.max_attempts == max_attempts
                     and existing.manifest.get("parsers", {}) == parsers
                 )
                 if not same_request:

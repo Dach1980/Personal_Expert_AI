@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/v1", tags=["document-processing"])
 class ProcessingRunCreate(BaseModel):
     pipeline_name: str = Field(default="document-ingestion", min_length=1, max_length=150)
     pipeline_version: str = Field(default="1", min_length=1, max_length=100)
-    parser_manifest: dict[str, object] = Field(default_factory=dict)
+    parser_manifest: dict[str, str] = Field(default_factory=dict)
     max_attempts: int = Field(default=3, ge=1, le=20)
 
 
