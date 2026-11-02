@@ -21,7 +21,7 @@ def upgrade() -> None:
         sa.Column("document_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("idempotency_key", sa.String(128), nullable=False),
         sa.Column("created_by", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("status", sa.String(20), nullable=False, server_default="receiving"),
+        sa.Column("status", sa.String(20), nullable=False),
         sa.Column("original_filename", sa.String(500), nullable=False),
         sa.Column("media_type", sa.String(150)),
         sa.Column("size_bytes", sa.BigInteger),
