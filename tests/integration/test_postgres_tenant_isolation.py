@@ -1,10 +1,15 @@
 """PostgreSQL integration tests. Run after `alembic upgrade head`."""
 import os
+from io import BytesIO
 from uuid import uuid4
 
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError
+
+from app.storage.database import build_session_factory
+from app.storage.file_store import LocalFileStore, StorageIntegrityError
+from app.storage.upload_service import DocumentUploadService, UploadConflict, UploadAccessDenied
 
 DATABASE_URL = os.getenv("APP_DATABASE_URL") or os.getenv("DATABASE_URL")
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="PostgreSQL DATABASE_URL is required")
@@ -158,3 +163,130 @@ def test_document_version_rejects_invalid_checksum_and_zero_size(connection):
                         "document": document_id, "storage": f"{tenant_id}/{uuid4()}/bad",
                     },
                 )
+
+
+
+def _create_upload_fixture(connection):
+    tenant_id, project_id, user_id, document_id = uuid4(), uuid4(), uuid4(), uuid4()
+    with connection.begin():
+        _tenant(connection, tenant_id)
+        connection.execute(
+            text("INSERT INTO users (id, login, status) VALUES (:id, :login, 'active')"),
+            {"id": user_id, "login": f"upload-{user_id}@test.local"},
+        )
+        connection.execute(
+            text("""INSERT INTO memberships (id, tenant_id, user_id, role, status)
+                    VALUES (:id, :tenant, :user, 'member', 'active')"""),
+            {"id": uuid4(), "tenant": tenant_id, "user": user_id},
+        )
+        connection.execute(
+            text("""INSERT INTO projects (id, tenant_id, name, status, metadata)
+                    VALUES (:id, :tenant, 'Upload project', 'active', '{}'::jsonb)"""),
+            {"id": project_id, "tenant": tenant_id},
+        )
+        connection.execute(
+            text("""INSERT INTO project_memberships
+                    (id, tenant_id, project_id, user_id, role, status)
+                    VALUES (:id, :tenant, :project, :user, 'engineer', 'active')"""),
+            {"id": uuid4(), "tenant": tenant_id, "project": project_id, "user": user_id},
+        )
+        connection.execute(
+            text("""INSERT INTO documents
+                    (id, tenant_id, project_id, title, status)
+                    VALUES (:id, :tenant, :project, 'Upload source', 'active')"""),
+            {"id": document_id, "tenant": tenant_id, "project": project_id},
+        )
+    return tenant_id, project_id, user_id, document_id
+
+
+def test_upload_is_idempotent_and_download_rechecks_sha256(connection, tmp_path):
+    tenant_id, project_id, user_id, document_id = _create_upload_fixture(connection)
+    factory = build_session_factory(DATABASE_URL)
+    store = LocalFileStore(tmp_path / "private-documents")
+    service = DocumentUploadService(factory, store, max_bytes=1024 * 1024)
+    source_bytes = b"%PDF-1.7\n% immutable test source"
+    try:
+        result = service.upload(
+            tenant_id, project_id, document_id, user_id,
+            "upload-key-0001", "source.pdf", BytesIO(source_bytes),
+        )
+        assert result.version.checksum_sha256
+        assert result.version.size_bytes == len(source_bytes)
+        assert result.version.media_type == "application/pdf"
+
+        replay = service.upload(
+            tenant_id, project_id, document_id, user_id,
+            "upload-key-0001", "source.pdf", BytesIO(source_bytes),
+        )
+        assert replay.replayed is True
+        assert replay.version.id == result.version.id
+
+        with pytest.raises(UploadConflict):
+            service.upload(
+                tenant_id, project_id, document_id, user_id,
+                "upload-key-0001", "source.pdf", BytesIO(b"%PDF-1.7\nother source"),
+            )
+
+        version, stream = service.open_verified(
+            tenant_id, project_id, document_id, result.version.id, user_id
+        )
+        with stream:
+            assert stream.read() == source_bytes
+        (store.root / version.storage_key).write_bytes(b"tampered")
+        with pytest.raises(StorageIntegrityError):
+            service.open_verified(
+                tenant_id, project_id, document_id, result.version.id, user_id
+            )
+    finally:
+        factory.kw["bind"].dispose()
+
+
+def test_upload_reconciliation_recovers_publishing_crash(connection, tmp_path):
+    tenant_id, project_id, user_id, document_id = _create_upload_fixture(connection)
+    factory = build_session_factory(DATABASE_URL)
+    store = LocalFileStore(tmp_path / "recovery-documents")
+    service = DocumentUploadService(factory, store, max_bytes=1024 * 1024)
+    original_put = store.put_stream
+    source_bytes = b"%PDF-1.7\n% recover after file/database boundary"
+    tenant_prefix = f"{tenant_id}/{project_id}/"
+    def fail_published_object(storage_key, chunks, *, max_bytes):
+        if storage_key.startswith(tenant_prefix):
+            raise OSError("simulated process failure before final object publication")
+        return original_put(storage_key, chunks, max_bytes=max_bytes)
+    store.put_stream = fail_published_object
+    try:
+        with pytest.raises(OSError, match="simulated process failure"):
+            service.upload(
+                tenant_id, project_id, document_id, user_id,
+                "recovery-key-0001", "recover.pdf", BytesIO(source_bytes),
+            )
+        store.put_stream = original_put
+        report = service.reconcile(tenant_id, stale_after_seconds=0)
+        assert report.inspected == 1
+        assert report.recovered == 1
+        assert report.failed == 0
+        assert report.orphan_keys == ()
+    finally:
+        factory.kw["bind"].dispose()
+
+
+def test_viewer_cannot_upload_documents(connection, tmp_path):
+    tenant_id, project_id, user_id, document_id = _create_upload_fixture(connection)
+    with connection.begin():
+        connection.execute(
+            text("""UPDATE project_memberships SET role = 'viewer'
+                    WHERE tenant_id = :tenant AND project_id = :project AND user_id = :user"""),
+            {"tenant": tenant_id, "project": project_id, "user": user_id},
+        )
+    factory = build_session_factory(DATABASE_URL)
+    service = DocumentUploadService(
+        factory, LocalFileStore(tmp_path / "viewer-documents"), max_bytes=1024 * 1024
+    )
+    try:
+        with pytest.raises(UploadAccessDenied):
+            service.upload(
+                tenant_id, project_id, document_id, user_id,
+                "viewer-key-0001", "source.pdf", BytesIO(b"%PDF-1.7\nnot allowed"),
+            )
+    finally:
+        factory.kw["bind"].dispose()
