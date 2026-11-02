@@ -53,7 +53,7 @@ Install and run locally:
 
 ### Document upload and local storage
 
-Authenticated multipart upload and checksum-verified download are implemented for PDF, DOCX, XLSX and PPTX. Configure `DOCUMENT_STORAGE_ROOT` (default `./var/documents`) and `DOCUMENT_MAX_UPLOAD_BYTES` (default 100 MiB). The storage directory is private and ignored by Git. Upload operations are idempotent and recoverable; PostgreSQL migration `0004_upload_operations` stores their state under tenant RLS.
+Authenticated multipart upload and checksum-verified download are implemented for PDF, DOCX, XLSX and PPTX. Configure `DOCUMENT_STORAGE_ROOT` (по умолчанию — локальная папка данных текущего пользователя) and `DOCUMENT_MAX_UPLOAD_BYTES` (default 100 MiB). The storage directory is private and ignored by Git. Upload operations are idempotent and recoverable; PostgreSQL migration `0004_upload_operations` stores their state under tenant RLS.
 
 Run tenant-scoped recovery/integrity checks after an interrupted process or as a scheduled local maintenance task:
 
