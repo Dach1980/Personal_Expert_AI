@@ -35,12 +35,15 @@
 
 ## Фаза 1. Проверочные прототипы — запланировано
 
-- [ ] P0 — LM Studio: chat, vision, embeddings, tool calling, streaming, auth, concurrency, model loading.
-- [ ] P1 — AnythingLLM Docker: LM Studio connection, workspace ACL, API, citations, deletion, container privileges, network traffic.
-- [ ] P2 — сравнение ingestion на одном обезличенном комплекте документов.
-- [ ] P3 — Memory/Skills: user/project/session scopes, FTS, semantic recall, approval, versioning, deletion.
-- [ ] P4 — end-to-end интеграция одного проверочного кейса ВК с regression benchmark.
-- [ ] P5 — multi-user isolation для документов, индексов, памяти, истории, логов, кэшей и артефактов.
+Архитектурные решения зафиксированы в [TARGET_ARCHITECTURE.md](../architecture/TARGET_ARCHITECTURE.md). Прототипы должны подтвердить совместимость компонентов и не переносить бизнес-логику в AnythingLLM или сторонний агент.
+
+- [ ] P0 — LM Studio provider: chat, vision, embeddings, reranker, tool calling, streaming, auth, concurrency и загрузка/переключение моделей. Сначала контракт, adapter и mock-тесты; затем runtime smoke tests на локальной машине.
+- [ ] P1 — AnythingLLM Docker как сменный UI: подключение к backend/LM Studio, workspace-to-project mapping, ACL, API, citations, deletion, container privileges и сетевой трафик.
+- [ ] P2 — OCR Benchmark: Tesseract vs PaddleOCR vs EasyOCR на едином воспроизводимом наборе с Ground Truth; CER/WER, координаты, latency и RAM.
+- [ ] P3 — ingestion benchmark на одном обезличенном комплекте документов: качество извлечения, полнота, provenance и устойчивость повторной обработки.
+- [ ] P4 — Memory/Skills prototype: User/Project/Professional/Session scopes, FTS, semantic recall, approval, provenance, versioning и deletion.
+- [ ] P5 — end-to-end интеграция одного проверочного кейса ВК с regression benchmark.
+- [ ] P6 — multi-user isolation для документов, индексов, памяти, истории, логов, кэшей и артефактов.
 
 ## Фаза 2. Backend и управление документами — в работе
 
@@ -131,6 +134,25 @@
 - [ ] Аудит доступа и действий.
 - [ ] Резервное копирование и проверенное восстановление.
 - [ ] Тестирование модели угроз и local-only network policy.
+
+## Ближайшая последовательность работ
+
+Порядок ниже учитывает уже реализованный backend и Document Processing Pipeline. Это рабочая последовательность, а не требование закончить всю обработку документов до начала интеграции моделей.
+
+1. **Закрепить архитектуру и границы компонентов.** Целевая схема описана в [TARGET_ARCHITECTURE.md](../architecture/TARGET_ARCHITECTURE.md). Сохранять AnythingLLM как сменный UI, Python как управляющий слой, Project Expert Engine как инженерное ядро, LM Studio за provider abstraction.
+2. **Довести текущий OCR до измеримого качества.** Создать синтетический и публично допустимый тестовый набор с Ground Truth; проверить Tesseract, координаты, повороты, разные DPI, качество распознавания и ресурсы; исправить геометрическую дедупликацию. Не загружать конфиденциальные проектные документы в публичный CI.
+3. **Сделать сменные OCR adapters и сравнить движки.** Tesseract остаётся текущей реализацией; PaddleOCR и EasyOCR подключаются сначала только к benchmark harness. Выбор production движка — отдельное ADR после результатов.
+4. **Параллельно подготовить LM Studio provider.** Реализовать единый контракт провайдера и mock-тесты без запущенного LM Studio. Затем проверить chat, streaming, tool calling, embeddings, vision, reranker, concurrency и загрузку моделей на целевой локальной машине. Не заявлять runtime-совместимость до реального smoke test.
+5. **Проверить AnythingLLM как UI, а не как backend.** Исследовать API, авторизацию, связь workspace с project, citations, ACL, удаление, контейнерные права и сетевые обращения. Не передавать ему владение документами, памятью и инженерными workflow.
+6. **Завершить Document/Page Model.** Добавить vector drawing extraction, нормализацию таблиц, формулы, image/Vision enrichment и quality/completeness scoring. Каждый элемент сохраняет locator, координаты и provenance.
+7. **Построить Knowledge Engine.** Сначала типизированные сущности, утверждения, связи, provenance и hybrid retrieval; затем сравнить pgvector/Qdrant и варианты графового хранения. PostgreSQL остаётся источником истины.
+8. **Реализовать Memory Engine и Skills.** Разделить User Memory, Project Memory и Professional Memory; добавить scopes, подтверждение фактов, актуальность, происхождение, версионирование Skills, журнал исполнений и удаление.
+9. **Развить Python AI Orchestrator и Tool Gateway.** Управление workflow, контекстом, маршрутизацией моделей, памятью, Skills и MCP-инструментами; централизованные ACL, allowlist, подтверждения и аудит.
+10. **Интегрировать Project Expert Engine.** Переносить проверенные модули Project Expert AI поэтапно, не переписывая рабочие алгоритмы; начать с одного сквозного кейса ВК.
+11. **Собрать end-to-end MVP.** Пользователь через AnythingLLM задаёт вопрос по проекту; Orchestrator получает контекст из Memory/Knowledge Engine, вызывает локальную модель и/или Expert Engine и возвращает ответ с точными доказательными ссылками.
+12. **Подготовить multi-user и эксплуатацию.** Проверить изоляцию всех данных и производных индексов, роли, лимиты, backup/restore, аудит, мониторинг и local-only network policy.
+
+**Что можно делать без LM Studio:** пункты OCR Benchmark, дедупликация, extraction adapters, геометрия, таблицы/формулы/vector extraction, модель страницы, storage/provenance, Knowledge/Memory schema и API-контракты; provider adapter можно разработать и покрыть mock-тестами. Реальное качество inference, совместимость выбранных моделей, VRAM/RAM, скорость и concurrency требуют запуска LM Studio на целевой машине.
 
 ## Правило принятия решений
 
