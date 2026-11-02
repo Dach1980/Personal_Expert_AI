@@ -21,7 +21,7 @@ Set the following environment variables:
 | Variable | Default | Purpose |
 |---|---:|---|
 | `DATABASE_URL` | none | PostgreSQL connection for the application/runtime role |
-| `DOCUMENT_STORAGE_ROOT` | `./var/documents` | Absolute local filesystem root after resolution |
+| `DOCUMENT_STORAGE_ROOT` | Per-user OS application-data directory | Optional absolute local filesystem root override |
 | `DOCUMENT_MAX_UPLOAD_BYTES` | `104857600` | Maximum file size (100 MiB) |
 | `JWT_SECRET` | none | HS256 secret issued/managed by trusted identity provider |
 | `JWT_ISSUER` | none | Expected JWT issuer |
