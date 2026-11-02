@@ -101,7 +101,7 @@ Checksum вычисляется для исходных байтов. Дубли
 
 Для Finding: draft, open, accepted, rejected, resolved, deferred.
 
-Для DocumentVersion: uploaded, processing, indexed, failed, superseded, archived, deleted_pending, deleted.
+Для DocumentVersion: uploaded, processing, indexed, failed, integrity_failed, superseded, archived, deleted_pending, deleted. Статус integrity_failed выставляется при отсутствии исходного файла или несовпадении SHA-256/размера; выдача такой версии блокируется до операторского разбирательства.
 
 Переходы статусов валидируются сервисным слоем. Существенные изменения и удаления аудируются.
 
