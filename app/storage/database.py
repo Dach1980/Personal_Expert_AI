@@ -37,6 +37,11 @@ def set_tenant_context(session: Session, tenant_id: UUID) -> None:
     )
 
 
+def get_session_factory() -> sessionmaker[Session]:
+    """Return the process-wide factory for isolated background/service transactions."""
+    return _default_session_factory()
+
+
 def get_session() -> Generator[Session, None, None]:
     """Yield a request-scoped session and always close it."""
     with _default_session_factory()() as session:
@@ -44,4 +49,4 @@ def get_session() -> Generator[Session, None, None]:
             yield session
 
 
-__all__ = ["Base", "build_engine", "build_session_factory", "get_session", "set_tenant_context"]
+__all__ = ["Base", "build_engine", "build_session_factory", "get_session", "get_session_factory", "set_tenant_context"]
