@@ -62,6 +62,13 @@ Do not claim that a database commit and filesystem write are one atomic transact
 - PostgreSQL rejects malformed checksum/zero-size metadata.
 - PostgreSQL rejects mutation of source identity while allowing workflow status changes.
 
-## 6. Remaining work
+## 6. Implemented upload workflow and remaining work
 
-The next increments are the authenticated multipart upload endpoint, idempotency and operation records, file-type/content validation and quarantine, download verification, and a reconciliation command/worker. Parsing and indexing must not start until the source object has passed integrity verification.
+The authenticated multipart upload endpoint, idempotency and durable operation records, content-based format validation/quarantine, download verification, and tenant-scoped reconciliation command are implemented. See [DOCUMENT_UPLOAD_AND_RECOVERY.md](DOCUMENT_UPLOAD_AND_RECOVERY.md) for API contracts, configuration, crash states and operator procedure.
+
+Still pending:
+- automated scheduling/monitoring of reconciliation;
+- antivirus scanning integration, if the deployment threat model requires it (no external scanning service is called);
+- parsing and indexing pipeline, which must consume only completed and integrity-verified DocumentVersion records.
+
+Parsing and indexing must not start until the source object has passed integrity verification.
