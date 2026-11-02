@@ -19,6 +19,7 @@ build/
 Thumbs.db
 data/
 storage/
+var/
 uploads/
 artifacts/
 models/
