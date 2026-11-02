@@ -7,7 +7,6 @@ import io
 from dataclasses import dataclass, field
 from typing import Any
 
-
 MAX_FRAGMENTS = 200_000
 MAX_EMBEDDED_ASSET_BYTES = 25 * 1024 * 1024
 MAX_EMBEDDED_ASSETS = 2_000
