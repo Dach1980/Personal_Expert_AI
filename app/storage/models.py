@@ -89,7 +89,6 @@ class ProjectMembership(Base, TimestampMixin):
     __tablename__ = "project_memberships"
     __table_args__ = (
         UniqueConstraint("project_id", "user_id", name="uq_project_memberships_project_user"),
-        UniqueConstraint("tenant_id", "project_id", "user_id", name="uq_project_memberships_tenant_project_user"),
         CheckConstraint("role IN ('project_manager','engineer','reviewer','viewer')", name="ck_project_memberships_role"),
         ForeignKeyConstraint(["tenant_id", "project_id"], ["projects.tenant_id", "projects.id"], name="fk_project_memberships_project_tenant"),
         ForeignKeyConstraint(["tenant_id", "user_id"], ["memberships.tenant_id", "memberships.user_id"], name="fk_project_memberships_tenant_member"),
@@ -344,7 +343,7 @@ class UploadOperation(Base, TimestampMixin):
             name="fk_upload_operations_document_parent",
         ),
         ForeignKeyConstraint(
-            ["tenant_id", "project_id", "created_by"],
+            ["tenant_id", "created_by"],
             ["memberships.tenant_id", "memberships.user_id"],
             name="fk_upload_operations_creator_tenant_member",
         ),
