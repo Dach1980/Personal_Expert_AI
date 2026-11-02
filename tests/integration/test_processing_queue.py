@@ -57,7 +57,7 @@ def test_processing_queue_requires_completed_upload_and_is_idempotent(tmp_path):
             "processing-run-001", parser_manifest={"pdf": "pymupdf@1.24"},
         )
         assert replay.id == run.id and replayed is True
-        with pytest.raises(ProcessingConflict, match="different processing request"):
+        with pytest.raises(ProcessingConflict, match="another processing request"):
             processing.enqueue(
                 tenant_id, project_id, document_id, uploaded.version.id, user_id,
                 "processing-run-001", pipeline_version="2",
