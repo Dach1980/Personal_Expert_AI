@@ -63,3 +63,17 @@ def test_document_version_metadata_has_integrity_constraints() -> None:
     assert "ck_document_versions_filename_nonempty" in checks
     assert "ck_document_versions_media_type_nonempty" in checks
     assert "ck_document_versions_storage_key_nonempty" in checks
+
+
+
+def test_upload_operations_constrain_idempotency_and_state_metadata() -> None:
+    table = Base.metadata.tables["upload_operations"]
+    checks = {
+        item.name: str(item.sqltext)
+        for item in table.constraints
+        if isinstance(item, CheckConstraint)
+    }
+    assert "ck_upload_operations_idempotency_key" in checks
+    assert "ck_upload_operations_checksum" in checks
+    assert "ck_upload_operations_validated_metadata" in checks
+    assert "ck_upload_operations_completed_version" in checks
