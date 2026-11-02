@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import zipfile
 from pathlib import Path
 
@@ -37,8 +38,19 @@ def detect_document_type(path: Path, original_filename: str) -> str:
                 raise UnsupportedDocumentError("Office package contains too many entries")
             total_uncompressed = 0
             for item in archive.infolist():
-                if item.filename.startswith("/") or ".." in Path(item.filename.replace("\\", "/")).parts:
+                normalized_name = item.filename.replace("\\", "/")
+                if item.filename.startswith("/") or ".." in Path(normalized_name).parts:
                     raise UnsupportedDocumentError("Unsafe path in Office package")
+                if item.flag_bits & 0x1:
+                    raise UnsupportedDocumentError("Encrypted Office packages are not supported")
+                if item.filename.lower().endswith("vbaproject.bin"):
+                    raise UnsupportedDocumentError("Macro-enabled Office packages are not supported")
+                if item.filename.lower().endswith(".rels"):
+                    if item.file_size > 1024 * 1024:
+                        raise UnsupportedDocumentError("Office relationship metadata is too large")
+                    relationship_xml = archive.read(item)
+                    if re.search(rb"targetmode\\s*=\\s*[\"']external[\"']", relationship_xml, re.IGNORECASE):
+                        raise UnsupportedDocumentError("External Office relationships are not allowed")
                 total_uncompressed += item.file_size
                 if total_uncompressed > 1024 * 1024 * 1024:
                     raise UnsupportedDocumentError("Office package expands beyond the safety limit")
