@@ -216,6 +216,8 @@ class DocumentUploadService:
                 )
                 if version is None:
                     raise StorageIntegrityError("Completed upload has no registered document version")
+                if version.status == "integrity_failed":
+                    raise StorageIntegrityError("Document version is blocked after a prior integrity incident")
                 try:
                     self.store.verify(
                         version.storage_key,
@@ -433,6 +435,8 @@ class DocumentUploadService:
             )
             if version is None:
                 raise UploadNotFound("Document version not found")
+            if version.status == "integrity_failed":
+                raise StorageIntegrityError("Document version is blocked after a prior integrity incident")
             return version
 
     def open_verified(
