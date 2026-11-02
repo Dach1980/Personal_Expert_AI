@@ -265,6 +265,7 @@ def enrich_pdf(
         "rendered_bytes": render_bytes_total,
         "ocr_language": ocr_language, "ocr_engine_available": ocr_available,
         "ocr_pages": sum(1 for item in page_models if item["native_text_quality"]["ocr_recommended"]),
-        "page_model_schema_version": 1,\n        "embedded_images_ocr_inspected": embedded_ocr_count,
+        "page_model_schema_version": 1,
+        "embedded_images_ocr_inspected": embedded_ocr_count,
     }
     return result
