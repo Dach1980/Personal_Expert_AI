@@ -7,16 +7,17 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.auth import Principal, get_current_principal
-from app.api.schemas import (
-    DocumentCreate, DocumentRead, DocumentVersionRead, ProjectCreate, ProjectRead, TenantRead,
-)
 from app.api.dependencies import get_document_upload_service
-from app.storage.file_store import StorageIntegrityError
-from app.storage.upload_service import (
-    DocumentUploadService, UploadAccessDenied, UploadConflict, UploadNotFound,
-    UploadValidationError,
+from app.api.schemas import (
+    DocumentCreate,
+    DocumentRead,
+    DocumentVersionRead,
+    ProjectCreate,
+    ProjectRead,
+    TenantRead,
 )
 from app.storage.database import get_session
+from app.storage.file_store import StorageIntegrityError
 from app.storage.services import (
     AccessDeniedError,
     DocumentService,
@@ -24,7 +25,13 @@ from app.storage.services import (
     ResourceNotFoundError,
     TenantService,
 )
-
+from app.storage.upload_service import (
+    DocumentUploadService,
+    UploadAccessDenied,
+    UploadConflict,
+    UploadNotFound,
+    UploadValidationError,
+)
 router = APIRouter(prefix="/api/v1", tags=["workspace"])
 
 
