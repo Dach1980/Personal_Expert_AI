@@ -50,6 +50,8 @@
 - [x] Проверка tenant/project access.
 - [x] Локальный файловый storage primitive с потоковым SHA-256, лимитом размера, staging и атомарной публикацией без перезаписи.
 - [x] DB constraints для размера, SHA-256, имени, MIME и storage key.
+- [x] Durable UploadOperation journal с RLS, idempotency и composite FK (migration 0004).
+- [x] DB constraints для idempotency key, checksum, метаданных и terminal state consistency (migration 0005).
 - [x] PostgreSQL trigger, запрещающий изменение source identity у зарегистрированной DocumentVersion.
 - [x] Unit и PostgreSQL integration tests на checksum, подмену файла и неизменяемость источника.
 - [x] Конфигурация локального storage root, owner-only permissions и исключение локальных данных из Git.
