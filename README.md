@@ -30,6 +30,8 @@
 - [Domain Model](docs/architecture/DOMAIN_MODEL.md)
 - [Backend API](docs/architecture/BACKEND_API.md)
 - [Document Lifecycle](docs/architecture/DOCUMENT_LIFECYCLE.md)
+- [Document Storage Integrity](docs/architecture/DOCUMENT_STORAGE_INTEGRITY.md)
+- [Document Upload and Recovery](docs/architecture/DOCUMENT_UPLOAD_AND_RECOVERY.md)
 - [Knowledge Model](docs/architecture/KNOWLEDGE_MODEL.md)
 - [Memory Engine](docs/architecture/MEMORY_ENGINE.md)
 - [Security Model](docs/architecture/SECURITY_MODEL.md)
@@ -48,6 +50,16 @@ Install and run locally:
     set DATABASE_URL=postgresql+psycopg://personal_expert:YOUR_PASSWORD@localhost:5432/personal_expert
     alembic upgrade head
     pytest
+
+### Document upload and local storage
+
+Authenticated multipart upload and checksum-verified download are implemented for PDF, DOCX, XLSX and PPTX. Configure `DOCUMENT_STORAGE_ROOT` (default `./var/documents`) and `DOCUMENT_MAX_UPLOAD_BYTES` (default 100 MiB). The storage directory is private and ignored by Git. Upload operations are idempotent and recoverable; PostgreSQL migration `0004_upload_operations` stores their state under tenant RLS.
+
+Run tenant-scoped recovery/integrity checks after an interrupted process or as a scheduled local maintenance task:
+
+    python -m app.storage.reconcile --tenant-id <TENANT_UUID>
+
+The command resumes interrupted uploads, verifies registered originals, removes completed quarantine copies and reports orphan files. See [Document Upload and Recovery](docs/architecture/DOCUMENT_UPLOAD_AND_RECOVERY.md) for API examples and failure semantics.
 
 The authenticated API accepts signed HS256 JWTs issued by a trusted identity provider. Configure `JWT_SECRET` (at least 32 characters), `JWT_ISSUER` and `JWT_AUDIENCE`. Tokens must carry user UUID in `sub` and tenant UUID in `tenant_id`. The application does not issue tokens or manage passwords yet.
 
