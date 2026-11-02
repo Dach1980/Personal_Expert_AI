@@ -26,7 +26,7 @@ PostgreSQL — источник истины для метаданных, свя
 | memberships | Членство в tenant | UNIQUE tenant/user; CHECK role |
 | workspaces, projects | Организация проектов | FK tenant/workspace |
 | project_memberships | Доступ к проекту | UNIQUE project/user; CHECK role |
-| documents, document_versions | Логический документ и неизменяемые выпуски | checksum, unique storage_key, size >= 0 |
+| documents, document_versions | Логический документ и неизменяемые выпуски | SHA-256 CHECK, unique storage_key, size > 0, immutable source trigger |
 | processing_runs | Запуски обработки | CHECK status; manifest |
 | processing_artifacts | Производные файлы | storage_key UNIQUE |
 | source_fragments | Локализованные участки | locator, content_hash, extractor metadata |
@@ -35,6 +35,7 @@ PostgreSQL — источник истины для метаданных, свя
 | conversations, messages | История диалога | role CHECK; chronological index |
 | memory_entries | Память с отдельной областью | scope/status CHECK |
 | audit_events | Append-only аудит | actor/action/target/timestamp |
+| upload_operations | Durable multipart upload journal | tenant/project/idempotency UNIQUE; state CHECK; tenant RLS |
 
 ERD: [erd.mmd](erd.mmd).
 
@@ -42,6 +43,7 @@ ERD: [erd.mmd](erd.mmd).
 
 - projects: tenant_id, workspace_id, code, name, description, status, metadata.
 - document_versions: tenant_id, project_id, document_id, version_label, original_filename, media_type, size_bytes, checksum_sha256, storage_key, status, uploaded_by, uploaded_at, metadata.
+- upload_operations: tenant_id, project_id, document_id, idempotency_key, created_by, status, original_filename, media_type, size_bytes, checksum_sha256, quarantine_key, storage_key, document_version_id, error_code/message, completed_at.
 - processing_runs: document_version_id, pipeline_name/version, status, manifest, started_at, finished_at, error_code/message.
 - source_fragments: document_version_id, processing_run_id, fragment_type, locator JSONB, content, content_hash, extraction_method/version, quality JSONB.
 - knowledge_assertions: knowledge_item_id, source_fragment_id, subject, predicate, value JSONB, unit, extractor/version, confidence, review_status, valid_from/to, reviewed_by/at.
@@ -55,9 +57,14 @@ JSONB GIN и PostgreSQL FTS добавляются после проверки �
 
 ## Целостность и безопасность
 
-Внешние ключи и CHECK/UNIQUE constraints обеспечивают базовую целостность. Сервисный слой обязан проверять tenant и project membership при каждом запросе. Следующим hardening шагом должны стать composite foreign keys (tenant_id + parent_id) и PostgreSQL RLS, привязанный к проверенному session context. UUID не является доказательством доступа.
+Composite foreign keys защищают tenant/project parent consistency; PostgreSQL RLS применяется к tenant-owned tables, включая upload_operations, через transaction-local tenant context. Сервисный слой дополнительно проверяет активное членство и project role при каждом запросе. UUID не является доказательством доступа. DocumentVersion source identity защищена CHECK constraints и PostgreSQL trigger; UploadOperation хранит durable state machine для согласования файловой системы и БД.
 
 Не использовать широкие ON DELETE CASCADE для проектных данных. Сначала soft-delete/retention workflow, затем контролируемая очистка. Audit trail не удаляется обычным удалением проекта.
+
+## Миграции после начального ядра
+
+- `0003_document_integrity` — immutable source identity, SHA-256/size/name/MIME/storage key constraints и trigger.
+- `0004_upload_operations` — журнал multipart upload, idempotency, composite FK и tenant RLS.
 
 ## Не входит в первую миграцию
 
