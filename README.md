@@ -24,6 +24,8 @@
 
 ## Архитектурные документы
 
+Согласованная целевая архитектура продукта и границы ответственности компонентов: [Target Architecture](docs/architecture/TARGET_ARCHITECTURE.md). План реализации и текущий статус: [Roadmap](docs/development/ROADMAP.md).
+
 Полный комплект целевых требований и спецификаций находится в [docs/architecture](docs/architecture/OVERVIEW.md):
 
 - [Product Requirements](docs/architecture/PRODUCT_REQUIREMENTS.md)
