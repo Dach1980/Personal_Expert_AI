@@ -235,7 +235,7 @@ class ProcessingService:
     ) -> ProcessingRun:
         if not 15 <= lease_seconds <= 3600:
             raise ValueError("lease_seconds must be between 15 and 3600")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         with self.session_factory() as session, session.begin():
             set_tenant_context(session, tenant_id)
             run = session.scalar(select(ProcessingRun).where(
@@ -270,7 +270,7 @@ class ProcessingService:
             raise ValueError("Invalid artifact media type")
         if metadata is not None and not isinstance(metadata, dict):
             raise ValueError("Artifact metadata must be an object")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         with self.session_factory() as session, session.begin():
             set_tenant_context(session, tenant_id)
             run = session.scalar(select(ProcessingRun).where(
@@ -292,7 +292,7 @@ class ProcessingService:
             return artifact
 
     def complete(self, tenant_id: UUID, run_id: UUID, worker_id: str) -> ProcessingRun:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         with self.session_factory() as session, session.begin():
             set_tenant_context(session, tenant_id)
             run = session.scalar(select(ProcessingRun).where(
@@ -317,7 +317,7 @@ class ProcessingService:
         self, tenant_id: UUID, run_id: UUID, worker_id: str, *,
         error_code: str, error_message: str, retry_delay_seconds: int = 30,
     ) -> ProcessingRun:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         with self.session_factory() as session, session.begin():
             set_tenant_context(session, tenant_id)
             run = session.scalar(select(ProcessingRun).where(
