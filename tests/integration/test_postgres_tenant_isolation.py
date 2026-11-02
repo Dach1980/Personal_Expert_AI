@@ -214,6 +214,15 @@ def test_upload_is_idempotent_and_download_rechecks_sha256(connection, tmp_path)
         assert result.version.checksum_sha256
         assert result.version.size_bytes == len(source_bytes)
         assert result.version.media_type == "application/pdf"
+        with factory() as session, session.begin():
+            set_tenant_context(session, tenant_id)
+            upload_audit = session.scalar(
+                select(AuditEvent).where(
+                    AuditEvent.target_id == result.version.id,
+                    AuditEvent.action == "document.version_uploaded",
+                )
+            )
+            assert upload_audit is not None
 
         # The new upload-operation table must be protected by the same tenant RLS boundary.
         with connection.begin():
