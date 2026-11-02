@@ -3,9 +3,8 @@
 from fastapi import FastAPI
 
 from app.api.middleware import UploadBodyLimitMiddleware
-from app.storage.config import max_upload_bytes
-
 from app.api.routes import router as api_router
+from app.storage.config import max_upload_bytes
 
 app = FastAPI(
     title="Personal Expert AI",
