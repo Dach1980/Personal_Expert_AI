@@ -1,7 +1,7 @@
 # Domain Model — модель предметной области
 
 - Статус: базовая архитектурная спецификация, версия 1.0
-- Дата: 2026-11-01
+- Дата: 2026-11-02
 
 ## 1. Принципы моделирования
 
@@ -38,6 +38,7 @@
 | ProjectMembership | Доступ к проекту | project_id, user_id, role |
 | Document | Логический документ | id, project_id, document_type, title, current_version_id |
 | DocumentVersion | Неизменяемая редакция | id, document_id, version_label, checksum, storage_key, media_type, size |
+| UploadOperation | Durable журнал приёма файла | id, tenant_id, project_id, document_id, idempotency_key, status, quarantine_key, storage_key, checksum, document_version_id |
 | ProcessingRun | Запуск обработки версии | id, document_version_id, pipeline_version, status, started_at |
 | ProcessingArtifact | Производный файл/результат | id, processing_run_id, artifact_type, storage_key, checksum |
 | SourceFragment | Локализованный участок источника | id, document_version_id, locator, content, content_hash |
@@ -59,7 +60,8 @@
 - Tenant 1:N User memberships, Workspaces, Projects.
 - Workspace 1:N Projects.
 - Project 1:N Documents, Conversations, KnowledgeItems, ReviewRuns.
-- Document 1:N DocumentVersions.
+- Document 1:N DocumentVersions и UploadOperations.
+- UploadOperation связывает один idempotency key с одной попыткой приёма; после завершения ссылается на созданную DocumentVersion. Состояния receiving, quarantined, publishing, completed, failed позволяют восстановить файлово-БД переход после сбоя.
 - DocumentVersion 1:N ProcessingRuns.
 - ProcessingRun 1:N ProcessingArtifacts и SourceFragments.
 - SourceFragment может поддерживать несколько KnowledgeAssertions и EvidenceLinks.
@@ -74,6 +76,8 @@
 
 Document — логическая идентичность документа (например, «Пояснительная записка»). DocumentVersion — конкретный бинарный файл/редакция. Новая загрузка не должна изменять старый storage object. Версия может быть помечена как current, superseded, rejected или archived, но физически хранится по политике retention.
 
+Checksum SHA-256 вычисляется для исходных байтов при потоковой записи, повторно проверяется перед публикацией и скачиванием. UploadOperation фиксирует переходы между quarantine и final storage, поскольку файловая система и PostgreSQL не имеют общей транзакции. Новая редакция создаёт новый DocumentVersion, а повтор того же запроса с Idempotency-Key возвращает ту же версию.
+ 
 Checksum вычисляется для исходных байтов. Дубликат checksum в пределах проекта может быть предложен пользователю как повторная загрузка, но решение об объединении логических документов не должно приниматься только по checksum.
 
 ## 6. SourceFragment и локаторы
