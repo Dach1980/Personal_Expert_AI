@@ -49,7 +49,7 @@ def detect_document_type(path: Path, original_filename: str) -> str:
                     if item.file_size > 1024 * 1024:
                         raise UnsupportedDocumentError("Office relationship metadata is too large")
                     relationship_xml = archive.read(item)
-                    if re.search(rb"targetmode\\s*=\\s*[\"']external[\"']", relationship_xml, re.IGNORECASE):
+                    if re.search(rb"targetmode\s*=\s*[\"']external[\"']", relationship_xml, re.IGNORECASE):
                         raise UnsupportedDocumentError("External Office relationships are not allowed")
                 total_uncompressed += item.file_size
                 if total_uncompressed > 1024 * 1024 * 1024:
