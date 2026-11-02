@@ -468,9 +468,30 @@ class DocumentUploadService:
 
         with self.session_factory() as session, session.begin():
             set_tenant_context(session, tenant_id)
+            versions = list(session.scalars(
+                select(DocumentVersion).where(DocumentVersion.tenant_id == tenant_id)
+            ))
+            completed_operations = list(session.scalars(
+                select(UploadOperation).where(
+                    UploadOperation.tenant_id == tenant_id,
+                    UploadOperation.status == "completed",
+                )
+            ))
+            known_keys.update(item.storage_key for item in versions)
+            for version in versions:
+                try:
+                    self.store.verify(
+                        version.storage_key,
+                        expected_checksum=version.checksum_sha256,
+                        expected_size=version.size_bytes,
+                    )
+                except (StorageIntegrityError, FileNotFoundError):
+                    missing += 1
+            for operation in completed_operations:
+                self.store.delete(operation.quarantine_key)
             known_keys.update(
                 item.storage_key for item in session.scalars(
-                    select(DocumentVersion).where(DocumentVersion.tenant_id == tenant_id)
+                    select(UploadOperation).where(UploadOperation.tenant_id == tenant_id)
                 )
             )
             known_keys.update(
