@@ -12,8 +12,8 @@ import re
 from typing import Any
 
 from app.processing.adapters import (
-    MAX_EMBEDDED_ASSETS,
     MAX_EMBEDDED_ASSET_BYTES,
+    MAX_EMBEDDED_ASSETS,
     EmbeddedAsset,
     ExtractionResult,
     Fragment,
