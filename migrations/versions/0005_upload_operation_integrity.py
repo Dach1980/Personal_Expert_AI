@@ -13,7 +13,7 @@ depends_on = None
 CONSTRAINTS = [
     (
         "ck_upload_operations_idempotency_key",
-        "idempotency_key ~ '^[A-Za-z0-9._:-]{8,128}$'",
+        "length(idempotency_key) BETWEEN 8 AND 128 AND idempotency_key !~ '[^A-Za-z0-9._:-]' ",
     ),
     ("ck_upload_operations_filename", "length(trim(original_filename)) > 0"),
     ("ck_upload_operations_quarantine_key", "length(trim(quarantine_key)) > 0"),
