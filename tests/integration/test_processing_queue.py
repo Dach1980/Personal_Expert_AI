@@ -136,3 +136,51 @@ def test_queue_rejects_version_without_completed_upload_operation(tmp_path):
             )
     finally:
         factory.kw["bind"].dispose()
+
+
+
+def test_worker_extracts_pdf_and_persists_source_fragments(tmp_path, monkeypatch):
+    import fitz
+
+    from app.processing.worker import DocumentProcessingWorker
+    from app.storage.models import SourceFragment
+
+    tenant_id, project_id, user_id, document_id = _fixture()
+    root = tmp_path / "worker-storage"
+    monkeypatch.setenv("DOCUMENT_STORAGE_ROOT", str(root))
+    factory = build_session_factory(DATABASE_URL)
+    pdf = fitz.open()
+    page = pdf.new_page()
+    page.insert_text((72, 72), "End-to-end source evidence")
+    source_bytes = pdf.tobytes()
+    pdf.close()
+    uploads = DocumentUploadService(factory, LocalFileStore(root), max_bytes=1024 * 1024)
+    processing = ProcessingService(factory)
+    try:
+        uploaded = uploads.upload(
+            tenant_id, project_id, document_id, user_id,
+            "processing-upload-e2e", "evidence.pdf", BytesIO(source_bytes),
+        )
+        queued, _ = processing.enqueue(
+            tenant_id, project_id, document_id, uploaded.version.id, user_id,
+            "processing-run-e2e", parser_manifest={"pdf": "PyMuPDF@" + fitz.VersionBind},
+        )
+        worker = DocumentProcessingWorker(worker_id="integration-worker", lease_seconds=60)
+        processed = worker.process_one(tenant_id)
+        assert processed == queued.id
+        with factory() as session, session.begin():
+            set_tenant_context(session, tenant_id)
+            run = session.get(ProcessingRun, queued.id)
+            fragments = list(session.scalars(select(SourceFragment).where(
+                SourceFragment.processing_run_id == queued.id
+            )))
+            artifacts = list(session.scalars(select(ProcessingArtifact).where(
+                ProcessingArtifact.processing_run_id == queued.id
+            )))
+            assert run.status == "succeeded"
+            assert run.manifest["extraction"]["metadata"]["page_count"] == 1
+            assert any(x.content and "End-to-end source evidence" in x.content for x in fragments)
+            assert any(x.artifact_type == "extraction_manifest" for x in artifacts)
+            assert all(x.fragment_key for x in fragments)
+    finally:
+        factory.kw["bind"].dispose()

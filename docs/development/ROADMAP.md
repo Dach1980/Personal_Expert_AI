@@ -74,9 +74,15 @@
 - [x] API постановки и просмотра ProcessingRun с tenant/project access checks.
 - [x] Unit и PostgreSQL integration tests для upload gate, idempotency, leases, retries и artifacts.
 - [ ] Реестр форматов и валидация загрузок.
-- [ ] PDF: native text/vector extraction, страницы, рендеринг и OCR fallback.
-- [ ] DOCX/XLSX/PPTX adapters.
-- [ ] Извлечение таблиц и сохранение координат.
+- [x] PDF: PyMuPDF native text, страницы, размеры/поворот, текстовые блоки и bbox в PDF points, извлечение встроенных изображений.
+- [x] DOCX: абзацы/стили, ячейки таблиц, извлечение встроенных изображений.
+- [x] XLSX: листы, значения и формулы, координаты ячеек, объединённые диапазоны и изображения.
+- [x] PPTX: слайды, текстовые блоки с геометрией, ячейки таблиц и изображения.
+- [x] Локальное сохранение extraction manifest и изображений с SHA-256/size и ProcessingArtifact.
+- [x] SourceFragment с locator, content hash, версией парсера и ссылкой на DocumentVersion/ProcessingRun.
+- [x] Идемпотентная запись фрагментов при retry и heartbeat worker lease.
+- [ ] PDF page rendering, OCR fallback и векторная графика.
+- [ ] Полная нормализация сложных таблиц, вложенных структур и координат.
 - [ ] Формулы и математические выражения.
 - [ ] Изображения и чертежи.
 - [ ] Структурированное описание документа и паспорт проекта.
