@@ -249,6 +249,20 @@ def test_upload_is_idempotent_and_download_rechecks_sha256(connection, tmp_path)
             service.open_verified(
                 tenant_id, project_id, document_id, result.version.id, user_id
             )
+        with factory() as session, session.begin():
+            from app.storage.database import set_tenant_context
+            from app.storage.models import AuditEvent, DocumentVersion
+            from sqlalchemy import select
+            set_tenant_context(session, tenant_id)
+            stored_version = session.get(DocumentVersion, result.version.id)
+            assert stored_version.status == "integrity_failed"
+            audit = session.scalar(
+                select(AuditEvent).where(
+                    AuditEvent.target_id == result.version.id,
+                    AuditEvent.action == "document.source_integrity_failed",
+                )
+            )
+            assert audit is not None
     finally:
         factory.kw["bind"].dispose()
 
