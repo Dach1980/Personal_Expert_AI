@@ -13,11 +13,6 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.create_unique_constraint(
-        "uq_project_memberships_tenant_project_user",
-        "project_memberships",
-        ["tenant_id", "project_id", "user_id"],
-    )
     op.create_table(
         "upload_operations",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
@@ -53,8 +48,8 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(
             ["tenant_id", "project_id", "created_by"],
-            ["project_memberships.tenant_id", "project_memberships.project_id", "project_memberships.user_id"],
-            name="fk_upload_operations_creator_project_member",
+            ["memberships.tenant_id", "memberships.user_id"],
+            name="fk_upload_operations_creator_tenant_member",
         ),
         sa.ForeignKeyConstraint(
             ["tenant_id", "project_id", "document_version_id"],
@@ -78,8 +73,3 @@ def downgrade() -> None:
     op.execute("ALTER TABLE upload_operations DISABLE ROW LEVEL SECURITY")
     op.drop_index("ix_upload_operations_status_created", table_name="upload_operations")
     op.drop_table("upload_operations")
-    op.drop_constraint(
-        "uq_project_memberships_tenant_project_user",
-        "project_memberships",
-        type_="unique",
-    )
