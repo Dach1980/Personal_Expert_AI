@@ -3,13 +3,23 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 
 def storage_root() -> Path:
-    """Resolve a local absolute storage root; no network-backed storage is supported."""
-    raw = os.getenv("DOCUMENT_STORAGE_ROOT", "./var/documents")
-    root = Path(raw).expanduser()
+    """Resolve a private per-user local data directory unless explicitly configured."""
+    configured = os.getenv("DOCUMENT_STORAGE_ROOT")
+    if configured:
+        root = Path(configured).expanduser()
+    elif os.name == "nt":
+        base = Path(os.getenv("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+        root = base / "PersonalExpertAI" / "documents"
+    elif sys.platform == "darwin":
+        root = Path.home() / "Library" / "Application Support" / "PersonalExpertAI" / "documents"
+    else:
+        base = Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+        root = base / "personal-expert-ai" / "documents"
     if not root.is_absolute():
         root = Path.cwd() / root
     return root.resolve()
