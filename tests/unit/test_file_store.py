@@ -52,7 +52,9 @@ def test_rejects_empty_oversized_and_unsafe_keys(tmp_path):
 def test_detects_post_write_tampering(tmp_path):
     store = LocalFileStore(tmp_path / "objects")
     stored = store.put_stream("tenant/project/version/source.bin", [b"trusted"], max_bytes=100)
-    (tmp_path / "objects" / stored.storage_key).write_bytes(b"tampered")
+    target = tmp_path / "objects" / stored.storage_key
+    target.chmod(0o600)
+    target.write_bytes(b"tampered")
 
     with pytest.raises(StorageIntegrityError, match="checksum or size"):
         store.verify(
