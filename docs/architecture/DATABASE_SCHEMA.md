@@ -65,6 +65,7 @@ Composite foreign keys защищают tenant/project parent consistency; Postg
 
 - `0003_document_integrity` — immutable source identity, SHA-256/size/name/MIME/storage key constraints и trigger.
 - `0004_upload_operations` — журнал multipart upload, idempotency, composite FK и tenant RLS.
+- `0005_upload_operation_integrity` — CHECK constraints для idempotency key, checksum, storage keys и согласованности terminal states.
 
 ## Не входит в первую миграцию
 
