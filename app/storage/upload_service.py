@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import BinaryIO, Callable
+from typing import BinaryIO
 from urllib.parse import unquote
 from uuid import UUID, uuid4
 
@@ -182,14 +182,20 @@ class DocumentUploadService:
                 existing_hash = operation.checksum_sha256
                 existing_size = operation.size_bytes
                 existing_version_id = operation.document_version_id
+                existing_document_id = operation.document_id
+                existing_filename = operation.original_filename
             else:
                 existing_id = None
                 existing_status = None
                 existing_hash = None
                 existing_size = None
                 existing_version_id = None
+                existing_document_id = None
+                existing_filename = None
 
         if existing_id is not None:
+            if existing_document_id != document_id or existing_filename != filename:
+                raise UploadConflict("Idempotency key was already used for a different document or filename")
             if existing_status != "completed" or not existing_version_id:
                 raise UploadConflict("An upload with this idempotency key is already in progress or failed")
             digest, size = _hash_stream(source, self.max_bytes)
@@ -214,11 +220,10 @@ class DocumentUploadService:
                 return UploadResult(version=version, replayed=True)
 
         operation_id = uuid4()
-        version_id = uuid4()
         suffix = Path(filename).suffix.lower()
         quarantine_key = f"quarantine/{tenant_id}/{operation_id}.part"
         storage_key = (
-            f"{tenant_id}/{project_id}/{document_id}/{version_id}/source{suffix}"
+            f"{tenant_id}/{project_id}/{document_id}/{operation_id}/source{suffix}"
         )
         with self.session_factory() as session, session.begin():
             from app.storage.database import set_tenant_context
@@ -275,8 +280,10 @@ class DocumentUploadService:
 
             set_tenant_context(session, tenant_id)
             operation = session.get(UploadOperation, operation_id)
+            if operation is None or operation.document_version_id is None:
+                raise RuntimeError("Upload completed without a registered version")
             version = session.get(DocumentVersion, operation.document_version_id)
-            if operation is None or version is None:
+            if version is None:
                 raise RuntimeError("Upload completed without a registered version")
             result = UploadResult(version=version)
         self.store.delete(quarantine_key)
@@ -421,6 +428,7 @@ class DocumentUploadService:
                 )
             }
             known_keys.update(item.quarantine_key for item in operations)
+            known_keys.update(item.storage_key for item in operations)
 
         recovered = failed = missing = 0
         for operation_id in operation_ids:
@@ -473,10 +481,16 @@ class DocumentUploadService:
                     )
                 )
             )
+            known_keys.update(
+                item.storage_key for item in session.scalars(
+                    select(UploadOperation).where(UploadOperation.tenant_id == tenant_id)
+                )
+            )
         tenant_prefix = f"{tenant_id}/"
         orphan_keys = tuple(
             key for key in self.store.iter_objects()
-            if key.startswith(tenant_prefix) and key not in known_keys
+            if (key.startswith(tenant_prefix) or key.startswith(f"quarantine/{tenant_id}/"))
+            and key not in known_keys
         )
         return ReconciliationReport(
             inspected=len(operation_ids),
