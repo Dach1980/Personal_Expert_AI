@@ -20,6 +20,7 @@ from app.storage.models import (
     ProcessingArtifact,
     ProcessingRun,
     ProjectMembership,
+    SourceFragment,
     UploadOperation,
 )
 
@@ -346,3 +347,64 @@ class ProcessingService:
                 },
             ))
             return run
+
+
+    def persist_extraction(
+        self, tenant_id: UUID, run_id: UUID, worker_id: str, *,
+        artifacts: list[dict[str, Any]], fragments: list[dict[str, Any]],
+        extraction_summary: dict[str, Any],
+    ) -> None:
+        """Persist parser outputs idempotently while the caller owns a live lease."""
+        from hashlib import sha256
+
+        now = datetime.now(UTC)
+        with self.session_factory() as session, session.begin():
+            set_tenant_context(session, tenant_id)
+            run = session.scalar(select(ProcessingRun).where(
+                ProcessingRun.tenant_id == tenant_id, ProcessingRun.id == run_id,
+                ProcessingRun.status == "running", ProcessingRun.lease_owner == worker_id,
+                ProcessingRun.lease_expires_at > now,
+            ).with_for_update())
+            if run is None:
+                raise ProcessingConflict("A valid worker lease is required to persist extraction")
+            for item in artifacts:
+                existing = session.scalar(select(ProcessingArtifact).where(
+                    ProcessingArtifact.tenant_id == tenant_id,
+                    ProcessingArtifact.storage_key == item["storage_key"],
+                ))
+                if existing is not None:
+                    if existing.checksum_sha256 != item["checksum_sha256"]:
+                        raise ProcessingConflict("Artifact storage key checksum conflict")
+                    continue
+                session.add(ProcessingArtifact(
+                    id=uuid4(), tenant_id=tenant_id, project_id=run.project_id,
+                    processing_run_id=run.id, artifact_type=item["artifact_type"],
+                    storage_key=item["storage_key"], checksum_sha256=item["checksum_sha256"],
+                    size_bytes=item["size_bytes"], media_type=item["media_type"],
+                    artifact_metadata=item.get("metadata", {}),
+                ))
+            for item in fragments:
+                locator = item["locator"]
+                identity = json.dumps(
+                    [item["fragment_type"], locator, item["content_hash"]],
+                    ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+                )
+                fragment_key = sha256(identity.encode("utf-8")).hexdigest()
+                existing = session.scalar(select(SourceFragment.id).where(
+                    SourceFragment.tenant_id == tenant_id,
+                    SourceFragment.project_id == run.project_id,
+                    SourceFragment.processing_run_id == run.id,
+                    SourceFragment.fragment_key == fragment_key,
+                ))
+                if existing is not None:
+                    continue
+                session.add(SourceFragment(
+                    id=uuid4(), tenant_id=tenant_id, project_id=run.project_id,
+                    document_version_id=run.document_version_id, processing_run_id=run.id,
+                    fragment_key=fragment_key, fragment_type=item["fragment_type"],
+                    locator=locator, content=item["content"], content_hash=item["content_hash"],
+                    extraction_method=item["extraction_method"],
+                    extractor_version=item["extractor_version"], quality=item.get("quality", {}),
+                ))
+            run.manifest = {**run.manifest, "extraction": extraction_summary}
+            run.heartbeat_at = now

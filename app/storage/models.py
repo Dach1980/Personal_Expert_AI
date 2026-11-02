@@ -218,6 +218,7 @@ class SourceFragment(Base):
     locator: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, nullable=False, default=dict)
     content: Mapped[str | None] = mapped_column(Text)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    fragment_key: Mapped[str] = mapped_column(String(64), nullable=False)
     extraction_method: Mapped[str | None] = mapped_column(String(100))
     extractor_version: Mapped[str | None] = mapped_column(String(100))
     quality: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, nullable=False, default=dict)
