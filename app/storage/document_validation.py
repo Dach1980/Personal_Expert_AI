@@ -39,7 +39,11 @@ def detect_document_type(path: Path, original_filename: str) -> str:
             total_uncompressed = 0
             for item in archive.infolist():
                 normalized_name = item.filename.replace("\\", "/")
-                if item.filename.startswith("/") or ".." in Path(normalized_name).parts:
+                if (
+                    item.filename.startswith("/")
+                    or re.match(r"^[A-Za-z]:", normalized_name)
+                    or ".." in Path(normalized_name).parts
+                ):
                     raise UnsupportedDocumentError("Unsafe path in Office package")
                 if item.flag_bits & 0x1:
                     raise UnsupportedDocumentError("Encrypted Office packages are not supported")
