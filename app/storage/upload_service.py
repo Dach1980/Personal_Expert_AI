@@ -138,7 +138,9 @@ class DocumentUploadService:
                 ProjectMembership.status == "active",
             )
         )
-        tenant_admin = tenant_member is not None and tenant_member.role in {"owner", "tenant_admin"}
+        if tenant_member is None:
+            raise UploadAccessDenied("Active tenant membership is required")
+        tenant_admin = tenant_member.role in {"owner", "tenant_admin"}
         role = tenant_member.role if tenant_admin else (project_member.role if project_member else None)
         if role is None or (write and role not in self.UPLOAD_ROLES):
             raise UploadAccessDenied("Project access does not permit this operation")
@@ -410,6 +412,8 @@ class DocumentUploadService:
     ) -> ReconciliationReport:
         from app.storage.database import set_tenant_context
 
+        if stale_after_seconds < 0:
+            raise ValueError("stale_after_seconds cannot be negative")
         cutoff = datetime.now(timezone.utc) - timedelta(seconds=stale_after_seconds)
         with self.session_factory() as session, session.begin():
             set_tenant_context(session, tenant_id)
@@ -417,7 +421,7 @@ class DocumentUploadService:
                 session.scalars(
                     select(UploadOperation).where(
                         UploadOperation.tenant_id == tenant_id,
-                        UploadOperation.status != "completed",
+                        UploadOperation.status.in_(["receiving", "quarantined", "publishing"]),
                     )
                 )
             )
@@ -491,14 +495,17 @@ class DocumentUploadService:
                 self.store.delete(operation.quarantine_key)
             known_keys.update(
                 item.storage_key for item in session.scalars(
-                    select(UploadOperation).where(UploadOperation.tenant_id == tenant_id)
+                    select(UploadOperation).where(
+                        UploadOperation.tenant_id == tenant_id,
+                        UploadOperation.status.in_(["receiving", "quarantined", "publishing"]),
+                    )
                 )
             )
             known_keys.update(
                 item.quarantine_key for item in session.scalars(
                     select(UploadOperation).where(
                         UploadOperation.tenant_id == tenant_id,
-                        UploadOperation.status != "completed",
+                        UploadOperation.status.in_(["receiving", "quarantined", "publishing"]),
                     )
                 )
             )
