@@ -71,7 +71,7 @@ The worker verifies the original file checksum before parsing, writes extraction
 
     personal-expert-ai-worker --tenant-id <TENANT_UUID> --worker-id local-worker-01 --watch
 
-See [Document Extraction Pipeline](docs/architecture/DOCUMENT_EXTRACTION_PIPELINE.md) for adapter coverage, locator formats and current limitations. OCR, PDF page rendering, complete vector extraction and full normalization of complex Office layouts remain future work.
+See [Document Extraction Pipeline](docs/architecture/DOCUMENT_EXTRACTION_PIPELINE.md) for adapter coverage, locator formats and current limitations. PDF pages are rendered locally and converted into structured page models. Optional Tesseract OCR is available through the OCR extra plus a separately installed Tesseract executable. OCR preserves word coordinates and avoids replacing native text. Embedded raster images can also be OCR-inspected. Semantic interpretation of engineering drawings by a local vision-language model, PDF vector extraction and full normalization of complex Office layouts remain future work.
 
 The authenticated API accepts signed HS256 JWTs issued by a trusted identity provider. Configure `JWT_SECRET` (at least 32 characters), `JWT_ISSUER` and `JWT_AUDIENCE`. Tokens must carry user UUID in `sub` and tenant UUID in `tenant_id`. The application does not issue tokens or manage passwords yet.
 

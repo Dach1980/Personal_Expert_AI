@@ -17,6 +17,30 @@ XLSX is opened with \`data_only=False\`; formulas remain formulas, rather than b
 with cached calculated values. Complex constructs such as nested tables, chart series,
 comments, headers/footers, SmartArt, equations and CAD/vector content are not fully normalized.
 
+## PDF rendering, OCR and structured pages
+
+PDF pages are rendered locally with PyMuPDF at 180 DPI by default (configurable per
+`ProcessingRun` manifest as `pdf.render_dpi`, range 72–300). PNG page images are stored as
+checksummed processing artifacts; rendering is bounded to 20 MiB per page and 200 MiB per PDF.
+The `structured_page` fragment contains page geometry, native text, text-density diagnostics,
+render reference and OCR status. Pixel coordinates are retained for the render; OCR word boxes
+are additionally converted to PDF points using the page/render scale.
+
+OCR is an optional local capability. Install `pip install -e ".[database,processing,ocr]"` and
+install the Tesseract executable separately on the host. Russian and English are selected by
+default (`ocr.language`, e.g. `rus+eng`); Tesseract page segmentation can be changed with
+`ocr.config`. OCR is attempted on pages with fewer than 24 native characters or low native-text
+density. Native PDF text remains preferred; duplicate OCR lines/words are filtered before
+`ocr_text` fragments are emitted. Missing Python OCR packages or Tesseract are recorded as
+unavailable in the structured page model; rendering and native extraction still succeed.
+
+Embedded raster images are independently inspected for dimensions and OCR text when the OCR
+extra is installed. OCR word boxes on embedded images use image-pixel coordinates and retain
+the original PDF/DOCX/XLSX/PPTX locator. This provides deterministic text and geometry evidence,
+not semantic image captioning. A local vision-language model adapter for interpreting symbols,
+engineering drawings and visual relationships remains a separate benchmark-driven task; no
+cloud vision service is called.
+
 ## Provenance and output
 
 Each \`SourceFragment\` is tied to tenant, project, immutable document version and processing run.

@@ -12,6 +12,7 @@ from typing import Any
 from uuid import UUID
 
 from app.processing.adapters import ExtractionResult, extract_document
+from app.processing.pdf_enrichment import enrich_pdf
 from app.processing.service import ProcessingService
 from app.storage.config import storage_root
 from app.storage.database import get_session_factory, set_tenant_context
@@ -55,6 +56,15 @@ class DocumentProcessingWorker:
             ) as source:
                 source_bytes = source.read()
             result = extract_document(filename, source_bytes)
+            if result.format == "pdf":
+                pdf_options = run.manifest.get("pdf", {})
+                ocr_options = run.manifest.get("ocr", {})
+                result = enrich_pdf(
+                    source_bytes, result,
+                    dpi=int(pdf_options.get("render_dpi", 180)),
+                    ocr_language=str(ocr_options.get("language", "rus+eng")),
+                    ocr_config=str(ocr_options.get("config", "--psm 3")),
+                )
             parser_expected = run.manifest.get("parsers", {}).get(result.format)
             if parser_expected and parser_expected not in {
                 result.parser_version, f"{result.parser_name}@{result.parser_version}",

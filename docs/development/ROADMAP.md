@@ -81,7 +81,13 @@
 - [x] Локальное сохранение extraction manifest и изображений с SHA-256/size и ProcessingArtifact.
 - [x] SourceFragment с locator, content hash, версией парсера и ссылкой на DocumentVersion/ProcessingRun.
 - [x] Идемпотентная запись фрагментов при retry и heartbeat worker lease.
-- [ ] PDF page rendering, OCR fallback и векторная графика.
+- [x] PDF page rendering через PyMuPDF с разрешением, геометрией, SHA-256 и локальным сохранением PNG-артефактов.
+- [x] Диагностика отсутствующего/недостаточного native text по количеству символов и плотности.
+- [x] Опциональный локальный Tesseract OCR с координатами слов, конвертацией в PDF points и фильтрацией дубликатов.
+- [x] OCR-инспекция встроенных растровых изображений с сохранением исходного locator.
+- [x] Единая structured page model, объединяющая native text, OCR, геометрию и render provenance.
+- [ ] Семантическое понимание схем и чертежей через локальную vision-language model после benchmark.
+- [ ] PDF vector drawings / paths and CAD-aware geometry.
 - [ ] Полная нормализация сложных таблиц, вложенных структур и координат.
 - [ ] Формулы и математические выражения.
 - [ ] Изображения и чертежи.
