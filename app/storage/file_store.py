@@ -41,6 +41,8 @@ class LocalFileStore:
         if os.name != "nt":
             os.chmod(self.root, 0o700)
         self.staging.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if self.staging.is_symlink():
+            raise ValueError("Storage staging directory must not be a symbolic link")
 
     def _target(self, storage_key: str) -> Path:
         if not _STORAGE_KEY_RE.fullmatch(storage_key):
@@ -48,6 +50,11 @@ class LocalFileStore:
         parts = storage_key.split("/")
         if any(part in {"", ".", ".."} for part in parts):
             raise ValueError("Invalid storage key")
+        cursor = self.root
+        for part in parts[:-1]:
+            cursor = cursor / part
+            if cursor.is_symlink():
+                raise ValueError("Storage path components must not be symbolic links")
         target = self.root.joinpath(*parts)
         resolved_parent = target.parent.resolve()
         if not resolved_parent.is_relative_to(self.root):
@@ -158,6 +165,20 @@ class LocalFileStore:
     def exists(self, storage_key: str) -> bool:
         target = self._target(storage_key)
         return target.is_file() and not target.is_symlink()
+
+    def cleanup_staging(self, *, max_age_seconds: int = 86400) -> int:
+        """Remove abandoned temporary writes older than the safety retention window."""
+        if max_age_seconds < 0:
+            raise ValueError("max_age_seconds cannot be negative")
+        cutoff = __import__("time").time() - max_age_seconds
+        removed = 0
+        for path in self.staging.iterdir():
+            if path.is_file() and not path.is_symlink() and path.stat().st_mtime < cutoff:
+                path.unlink()
+                removed += 1
+        if removed:
+            self._fsync_directory(self.staging)
+        return removed
 
     def iter_objects(self):
         """Yield regular object keys, excluding internal staging files."""
