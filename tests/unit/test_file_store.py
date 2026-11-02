@@ -58,3 +58,20 @@ def test_detects_post_write_tampering(tmp_path):
             expected_checksum=stored.checksum_sha256,
             expected_size=stored.size_bytes,
         )
+
+
+
+def test_storage_root_cannot_be_filesystem_root(tmp_path):
+    with pytest.raises(ValueError, match="filesystem root"):
+        LocalFileStore(tmp_path.anchor)
+
+
+def test_open_verified_returns_rewound_verified_handle(tmp_path):
+    store = LocalFileStore(tmp_path / "objects")
+    stored = store.put_stream("tenant/project/version/source.pdf", [b"%PDF-1.7"], max_bytes=100)
+    with store.open_verified(
+        stored.storage_key,
+        expected_checksum=stored.checksum_sha256,
+        expected_size=stored.size_bytes,
+    ) as source:
+        assert source.read() == b"%PDF-1.7"
