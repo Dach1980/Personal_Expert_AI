@@ -338,7 +338,31 @@ class UploadOperation(Base, TimestampMixin):
         ),
         CheckConstraint("size_bytes IS NULL OR size_bytes > 0", name="ck_upload_operations_size"),
         CheckConstraint(
-            "idempotency_key ~ '^[A-Za-z0-9._:-]{8,128}
+            "length(idempotency_key) BETWEEN 8 AND 128 AND "
+            "idempotency_key !~ '[^A-Za-z0-9._:-]'",
+            name="ck_upload_operations_idempotency_key",
+        ),
+        CheckConstraint("length(trim(original_filename)) > 0", name="ck_upload_operations_filename"),
+        CheckConstraint("length(trim(quarantine_key)) > 0", name="ck_upload_operations_quarantine_key"),
+        CheckConstraint("length(trim(storage_key)) > 0", name="ck_upload_operations_storage_key"),
+        CheckConstraint(
+            "checksum_sha256 IS NULL OR (length(checksum_sha256) = 64 AND "
+            "translate(checksum_sha256, '0123456789abcdef', '') = '')",
+            name="ck_upload_operations_checksum",
+        ),
+        CheckConstraint(
+            "media_type IS NULL OR length(trim(media_type)) > 0",
+            name="ck_upload_operations_media_type",
+        ),
+        CheckConstraint(
+            "status NOT IN ('quarantined','publishing','completed') OR "
+            "(media_type IS NOT NULL AND size_bytes IS NOT NULL AND checksum_sha256 IS NOT NULL)",
+            name="ck_upload_operations_validated_metadata",
+        ),
+        CheckConstraint(
+            "status <> 'completed' OR document_version_id IS NOT NULL",
+            name="ck_upload_operations_completed_version",
+        ),
         ForeignKeyConstraint(
             ["tenant_id", "project_id", "document_id"],
             ["documents.tenant_id", "documents.project_id", "documents.id"],
