@@ -6,9 +6,8 @@ import argparse
 import hashlib
 import json
 import logging
+import threading
 import time
-from dataclasses import asdict
-from io import BytesIO
 from typing import Any
 from uuid import UUID
 
@@ -35,6 +34,9 @@ class DocumentProcessingWorker:
         if run is None:
             return None
         run_id = run.id
+        stop_heartbeat = threading.Event()
+        heartbeat_thread = threading.Thread(target=self._heartbeat_loop, args=(tenant_id, run_id, stop_heartbeat), daemon=True)
+        heartbeat_thread.start()
         try:
             with self.factory() as session, session.begin():
                 set_tenant_context(session, tenant_id)
@@ -77,6 +79,24 @@ class DocumentProcessingWorker:
             except Exception:
                 LOGGER.exception("Could not transition failed run %s; lease recovery will handle it", run_id)
             return run_id
+        finally:
+            stop_heartbeat.set()
+            heartbeat_thread.join(timeout=2)
+
+    def _heartbeat_loop(self, tenant_id: UUID, run_id: UUID, stop: threading.Event) -> None:
+        interval = max(5, self.lease_seconds // 3)
+        while not stop.wait(interval):
+            try:
+                self.service.heartbeat(tenant_id, run_id, self.worker_id, lease_seconds=self.lease_seconds)
+            except Exception:
+                LOGGER.exception("Processing lease heartbeat failed for run %s", run_id)
+                return
+
+    def _put_idempotent(self, key: str, data: bytes, *, max_bytes: int):
+        digest = hashlib.sha256(data).hexdigest()
+        if self.store.exists(key):
+            return self.store.verify(key, expected_checksum=digest, expected_size=len(data))
+        return self.store.put_stream(key, [data], max_bytes=max_bytes)
 
     def _persist(
         self, tenant_id: UUID, run_id: UUID, result: ExtractionResult,
@@ -100,7 +120,7 @@ class DocumentProcessingWorker:
         artifact_prefix = f"{tenant_id}/{project_id}/processing/{run_id}"
         for asset in result.assets:
             key = f"{artifact_prefix}/assets/{hashlib.sha256(asset.data).hexdigest()}-{asset.name}"
-            stored = self.store.put_stream(key, [asset.data], max_bytes=25 * 1024 * 1024)
+            stored = self._put_idempotent(key, asset.data, max_bytes=25 * 1024 * 1024)
             artifact_entries.append({
                 "artifact_type": "embedded_image", "storage_key": key,
                 "checksum_sha256": stored.checksum_sha256, "size_bytes": stored.size_bytes,
@@ -124,7 +144,7 @@ class DocumentProcessingWorker:
         }
         payload = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
         key = f"{artifact_prefix}/extraction-manifest.json"
-        stored = self.store.put_stream(key, [payload], max_bytes=20 * 1024 * 1024)
+        stored = self._put_idempotent(key, payload, max_bytes=20 * 1024 * 1024)
         artifact_entries.append({
             "artifact_type": "extraction_manifest", "storage_key": key,
             "checksum_sha256": stored.checksum_sha256, "size_bytes": stored.size_bytes,
