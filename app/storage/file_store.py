@@ -125,6 +125,27 @@ class LocalFileStore:
             raise FileNotFoundError(storage_key)
         return target.open("rb")
 
+    def delete(self, storage_key: str, *, missing_ok: bool = True) -> None:
+        """Delete one validated object key; callers must first verify database references."""
+        target = self._target(storage_key)
+        target.unlink(missing_ok=missing_ok)
+        if target.parent.exists():
+            self._fsync_directory(target.parent)
+
+    def exists(self, storage_key: str) -> bool:
+        target = self._target(storage_key)
+        return target.is_file() and not target.is_symlink()
+
+    def iter_objects(self):
+        """Yield regular object keys, excluding internal staging files."""
+        for path in self.root.rglob("*"):
+            if not path.is_file() or path.is_symlink():
+                continue
+            relative = path.relative_to(self.root)
+            if relative.parts[0] == ".staging":
+                continue
+            yield relative.as_posix()
+
     @staticmethod
     def _fsync_directory(path: Path) -> None:
         if os.name == "nt":
