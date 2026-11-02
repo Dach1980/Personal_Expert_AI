@@ -8,7 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.auth import Principal, get_current_principal
 from app.processing.service import (
-    ProcessingAccessDenied, ProcessingConflict, ProcessingNotFound, ProcessingService,
+    ProcessingAccessDenied,
+    ProcessingConflict,
+    ProcessingNotFound,
+    ProcessingService,
 )
 from app.storage.database import get_session_factory
 

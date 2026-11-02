@@ -65,8 +65,14 @@
 
 Результат: первый законченный upload/download lifecycle реализован. Reconciliation запускается локальной командой по каждому tenant; автоматическое расписание и операторский мониторинг остаются эксплуатационной настройкой. Parsing/indexing ещё не подключены и должны запускаться только после статуса upload operation = completed.
 
-## Фаза 3. Обработка документации — запланировано
+## Фаза 3. Обработка документации — в работе
 
+- [x] Durable ProcessingRun queue: идемпотентная постановка только завершённых DocumentVersion в очередь.
+- [x] Версионирование pipeline/parser manifest в ProcessingRun.
+- [x] Worker leases, heartbeat, параллельный claim через PostgreSQL SKIP LOCKED и retry policy.
+- [x] Регистрация промежуточных ProcessingArtifact с checksum, размером и provenance metadata.
+- [x] API постановки и просмотра ProcessingRun с tenant/project access checks.
+- [x] Unit и PostgreSQL integration tests для upload gate, idempotency, leases, retries и artifacts.
 - [ ] Реестр форматов и валидация загрузок.
 - [ ] PDF: native text/vector extraction, страницы, рендеринг и OCR fallback.
 - [ ] DOCX/XLSX/PPTX adapters.
