@@ -245,7 +245,9 @@ def test_upload_is_idempotent_and_download_rechecks_sha256(connection, tmp_path)
         )
         with stream:
             assert stream.read() == source_bytes
-        (store.root / version.storage_key).write_bytes(b"tampered")
+        target = store.root / version.storage_key
+        target.chmod(0o600)
+        target.write_bytes(b"tampered")
         with pytest.raises(StorageIntegrityError):
             service.open_verified(
                 tenant_id, project_id, document_id, result.version.id, user_id
