@@ -41,6 +41,7 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint("size_bytes IS NULL OR size_bytes > 0", name="ck_upload_operations_size"),
         sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"]),
+        sa.ForeignKeyConstraint(["project_id"], ["projects.id"]),
         sa.ForeignKeyConstraint(["document_id"], ["documents.id"]),
         sa.ForeignKeyConstraint(["created_by"], ["users.id"]),
         sa.ForeignKeyConstraint(
