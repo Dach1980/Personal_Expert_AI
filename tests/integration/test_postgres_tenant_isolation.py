@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.storage.database import build_session_factory
 from app.storage.file_store import LocalFileStore, StorageIntegrityError
-from app.storage.upload_service import DocumentUploadService, UploadConflict, UploadAccessDenied
+from app.storage.upload_service import DocumentUploadService, UploadAccessDenied, UploadConflict
 
 DATABASE_URL = os.getenv("APP_DATABASE_URL") or os.getenv("DATABASE_URL")
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="PostgreSQL DATABASE_URL is required")
