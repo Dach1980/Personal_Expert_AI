@@ -240,6 +240,7 @@ def enrich_pdf(
                         if _is_spatial_duplicate(word["text"], bbox_pdf, native_words):
                             continue
                         word["bbox_pdf_points"] = [round(value, 3) for value in bbox_pdf]
+                        word["bbox_coordinate_space"] = "pdf-points-unrotated"
                         unique_words.append(word)
                     ocr_text = _lines_from_ocr_words(unique_words)
                     ocr_result["text"] = ocr_text
@@ -280,6 +281,7 @@ def enrich_pdf(
                 },
                 "ocr_words": ocr_result.get("words", []),
                 "text_source_policy": "native_text_preferred; non_duplicate_ocr_appended",
+                "ocr_coordinate_space": "pdf-points-unrotated",
                 "render_asset": {
                     "name": render_name, "sha256": render_digest,
                     "media_type": "image/png",
