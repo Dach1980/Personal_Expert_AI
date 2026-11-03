@@ -9,8 +9,9 @@ from __future__ import annotations
 import argparse
 import json
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
+from collections.abc import Sequence
 from typing import Any, Protocol
 
 
@@ -36,7 +37,7 @@ def normalize_text(value: str) -> str:
     return " ".join(normalized.split())
 
 
-def edit_distance(reference: str, hypothesis: str) -> int:
+def edit_distance(reference: Sequence[str], hypothesis: Sequence[str]) -> int:
     """Levenshtein distance using O(min(n, m)) memory."""
     if len(reference) < len(hypothesis):
         reference, hypothesis = hypothesis, reference
@@ -66,9 +67,7 @@ def word_error_rate(reference: str, hypothesis: str) -> float:
     hypothesis_words = normalize_text(hypothesis).split()
     if not reference_words:
         return 0.0 if not hypothesis_words else 1.0
-    return edit_distance(" ".join(reference_words), " ".join(hypothesis_words)) / len(
-        reference_words
-    )
+    return edit_distance(reference_words, hypothesis_words) / len(reference_words)
 
 
 def _box_iou(first: list[float], second: list[float]) -> float:
