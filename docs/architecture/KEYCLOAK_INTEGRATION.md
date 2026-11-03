@@ -113,7 +113,7 @@ For a local development cluster:
 
 In the Bionic realm, configure the Bionic OIDC client (the client used by Stack's oauth2-proxy) so that its access token has:
 
-1. Create a Keycloak client with ID `pea-api` as the API audience. It is not a browser login client; disable Standard Flow, Direct Access Grants and Service Accounts.
+1. Import [pea-api-client.json](../../infra/keycloak/pea-api-client.json) under **Clients → Import client**. It creates a bearer-only resource client named `pea-api`; it is not a browser login client.
 2. Import the client-scope template [pea-api-context-client-scope.json](../../infra/keycloak/pea-api-context-client-scope.json) under **Client scopes → Create client scope → Import**.
 3. Attach `pea-api-context` to the Bionic oauth2-proxy client as a **Default** client scope. Do not attach it only as Optional.
 4. Set the `tenant_id` user attribute on each Keycloak user to the PEA tenant UUID.
