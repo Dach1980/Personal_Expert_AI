@@ -4,6 +4,7 @@ Revision ID: 0009_reviews_findings_evidence
 """
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision = "0009_reviews_findings_evidence"
 down_revision = "0008_external_identities"
@@ -24,14 +25,18 @@ def upgrade() -> None:
         sa.Column("created_by", sa.Uuid(), nullable=False),
         sa.Column("assigned_to", sa.Uuid(), nullable=True),
         sa.Column("summary", sa.Text(), nullable=True),
-        sa.Column("metadata", sa.JSON(), server_default="{}", nullable=False),
+        sa.Column("metadata", postgresql.JSONB(astext_type=sa.Text()), server_default="{}", nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.CheckConstraint(
             "status IN ('draft','in_progress','completed','approved','rejected','cancelled')",
             name="ck_reviews_status",
         ),
-        sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"], name="fk_reviews_tenant_id_tenants"),
+        sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"]),
+        sa.ForeignKeyConstraint(["project_id"], ["projects.id"]),
+        sa.ForeignKeyConstraint(["document_version_id"], ["document_versions.id"]),
+        sa.ForeignKeyConstraint(["created_by"], ["users.id"]),
+        sa.ForeignKeyConstraint(["assigned_to"], ["users.id"]),
         sa.ForeignKeyConstraint(
             ["tenant_id", "project_id"], ["projects.tenant_id", "projects.id"],
             name="fk_reviews_project_tenant",
@@ -85,7 +90,11 @@ def upgrade() -> None:
             "status IN ('open','accepted','rejected','resolved','waived')",
             name="ck_findings_status",
         ),
-        sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"], name="fk_findings_tenant_id_tenants"),
+        sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"]),
+        sa.ForeignKeyConstraint(["project_id"], ["projects.id"]),
+        sa.ForeignKeyConstraint(["review_id"], ["reviews.id"]),
+        sa.ForeignKeyConstraint(["created_by"], ["users.id"]),
+        sa.ForeignKeyConstraint(["resolved_by"], ["users.id"]),
         sa.ForeignKeyConstraint(
             ["tenant_id", "project_id", "review_id"],
             ["reviews.tenant_id", "reviews.project_id", "reviews.id"],
@@ -114,7 +123,7 @@ def upgrade() -> None:
         sa.Column("evidence_type", sa.String(length=30), nullable=False),
         sa.Column("relation", sa.String(length=20), server_default="supports", nullable=False),
         sa.Column("source_fragment_id", sa.Uuid(), nullable=True),
-        sa.Column("locator", sa.JSON(), server_default="{}", nullable=False),
+        sa.Column("locator", postgresql.JSONB(astext_type=sa.Text()), server_default="{}", nullable=False),
         sa.Column("excerpt", sa.Text(), nullable=True),
         sa.Column("reference_label", sa.String(length=500), nullable=True),
         sa.Column("reference_uri", sa.String(length=2000), nullable=True),
@@ -130,7 +139,11 @@ def upgrade() -> None:
             "(evidence_type <> 'source_fragment' AND source_fragment_id IS NULL)",
             name="ck_evidence_source_fragment_required",
         ),
-        sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"], name="fk_evidence_tenant_id_tenants"),
+        sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"]),
+        sa.ForeignKeyConstraint(["project_id"], ["projects.id"]),
+        sa.ForeignKeyConstraint(["finding_id"], ["findings.id"]),
+        sa.ForeignKeyConstraint(["source_fragment_id"], ["source_fragments.id"]),
+        sa.ForeignKeyConstraint(["created_by"], ["users.id"]),
         sa.ForeignKeyConstraint(
             ["tenant_id", "project_id", "finding_id"],
             ["findings.tenant_id", "findings.project_id", "findings.id"],
