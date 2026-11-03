@@ -1,6 +1,6 @@
 # Keycloak authentication integration
 
-Status: architecture approved; implementation in progress (2026-11-03).
+Status: architecture approved; first implementation slice committed; local Keycloak provisioning and end-to-end deployment remain pending (2026-11-03).
 
 ## Decision
 
@@ -39,21 +39,20 @@ The PEA API must validate Keycloak access tokens using the realm's published JWK
 
 The API must not accept an algorithm selected by the untrusted token header, an arbitrary JWKS URL from a request, an unverified JWT payload, a tenant claim without membership verification, or an email-only identity match. Key rotation must work through the configured JWKS endpoint.
 
-The legacy HS256 development-token path must not be silently treated as Keycloak authentication. Any temporary development mode must be explicitly enabled, isolated from production and covered by tests.
+The former HS256/internal-UUID token contract is no longer used by the API authentication dependency. Tests cover signature, issuer, audience, expiry, malformed tenant context, explicit identity provisioning and active membership.
 
 ## Bionic security finding — must be fixed before production
 
-The current fork's `crates/web-server/jwt.rs` does **not** cryptographically verify JWT signatures. It splits the token, base64-decodes the payload and reads `sub` and `email`. It also supports `DANGER_JWT_OVERRIDE` and fallback `X-Forwarded-User` / `X-Forwarded-Email` headers.
+The fork's `crates/web-server/jwt.rs` now verifies RS256 signatures against the configured JWKS, validates issuer/audience/time claims, caches JWKS for five minutes and refreshes when a key id is not found. It accepts only `X-Forwarded-Access-Token`; the hard-coded `DANGER_JWT_OVERRIDE` and forwarded user/email fallback have been removed.
 
 Therefore:
 
 1. Do not expose the Bionic web-server port directly to untrusted networks.
 2. Do not treat Bionic's decoded `sub` as proof of identity.
-3. Before production, either add cryptographic OIDC/JWKS verification in Bionic or place it behind a hardened authentication gateway that verifies Keycloak tokens, strips all incoming identity headers and injects trusted identity data over a private network. The chosen gateway topology must be tested; merely setting an HTTP header is not authentication.
-4. Remove or strictly disable `DANGER_JWT_OVERRIDE` outside isolated tests.
-5. The PEA API must independently validate its own Bearer token. It must not trust Bionic's user ID/email headers.
+3. The Bionic app must remain behind the Stack OIDC component or an equivalent trusted gateway that performs the Keycloak login flow, strips client-supplied forwarded-token headers and injects the actual access token over the private app network. The plain Docker Compose example does not provide this gateway and must not be treated as a complete login deployment.
+4. PEA independently validates the forwarded Bearer token. It does not trust Bionic user-id/email headers.
 
-The API Adapter will use a server-side credential flow. A browser-provided user token may be forwarded only after the trust boundary and audience have been explicitly designed; Bionic must not mint PEA identities from unverified claims.
+The Bionic server-side API Adapter now exposes a fixed set of GET routes under `/api/pea`. It forwards the verified Keycloak access token to PEA; PEA independently validates it. The browser never receives service credentials and cannot choose an upstream URL.
 
 ## Target request flow
 
@@ -89,8 +88,9 @@ The API Adapter will use a server-side credential flow. A browser-provided user 
 
 ## Current implementation state
 
-- Existing PEA tenant/project/document read APIs are implemented and tenant-scoped.
-- Existing PEA authentication currently expects HS256 with a shared secret and internal UUID `sub`; it is not yet Keycloak-compatible.
-- Bionic's current JWT extractor decodes claims but does not verify signatures.
-- The Bionic adapter, external identity mapping and Review/Finding/Evidence domain are not yet implemented.
-- The fork's previous CI failure occurred after successful Rust compilation, during a push to the upstream `ghcr.io/bionic-gpt/bionicgpt` package. The fork CI has been changed to use the Dagger pull-request validation mode, which builds/tests without publishing images; the new run must finish successfully before this change is considered verified.
+- PEA now has an `external_identities` table keyed uniquely by (`issuer`, `subject`) and a migration for it. Unknown external identities are rejected; there is no automatic PEA account or tenant creation.
+- PEA now validates Keycloak RS256/JWKS tokens, resolves the internal user and verifies active tenant membership. Project access remains enforced by the existing project/document services.
+- PEA has initial Review, Finding and Evidence models, migration and tenant/project-scoped create/read/status endpoints with audit events.
+- Bionic now verifies Keycloak RS256/JWKS tokens and has fixed server-side GET adapter routes for projects, documents, versions, source fragments, artifacts and knowledge.
+- Local Keycloak realm/client provisioning, trusted OIDC gateway wiring, external identity provisioning, UI wiring and full end-to-end tests remain outstanding.
+- The fork CI no longer attempts to publish Docker images to the upstream GHCR package. Rust verification for the new authentication/adapter commits is still running; only completed successful workflow runs will be considered proof of compilation.
