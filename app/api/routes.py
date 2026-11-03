@@ -1,6 +1,6 @@
 """Authenticated Tenant, Project and Document endpoints."""
 from urllib.parse import quote
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
@@ -11,12 +11,18 @@ from app.api.auth import Principal, get_current_principal
 from app.api.dependencies import get_document_upload_service
 from app.api.schemas import (
     DocumentCreate,
+    EvidenceCreate,
+    EvidenceRead,
+    FindingCreate,
+    FindingRead,
     DocumentRead,
     DocumentVersionRead,
     KnowledgeItemRead,
     ProcessingArtifactRead,
     ProjectCreate,
     ProjectRead,
+    ReviewCreate,
+    ReviewRead,
     SourceFragmentRead,
     TenantRead,
 )
@@ -25,9 +31,13 @@ from app.storage.database import get_session, set_tenant_context
 from app.storage.file_store import LocalFileStore, StorageIntegrityError
 from app.storage.models import (
     DocumentVersion,
+    Evidence,
+    Finding,
     KnowledgeItem,
     ProcessingArtifact,
     ProcessingRun,
+    Review,
+    Membership,
     SourceFragment,
 )
 from app.storage.services import (
@@ -570,3 +580,299 @@ def list_project_knowledge(
         )
         for item in items
     ]
+
+
+def _require_review_write(
+    tenant_id: UUID, project_id: UUID, user_id: UUID, session: Session
+) -> None:
+    try:
+        role = DocumentService(session)._require_project_access(tenant_id, project_id, user_id)
+    except ResourceNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found") from None
+    if role not in {"owner", "tenant_admin", "project_manager", "engineer", "reviewer"}:
+        raise HTTPException(status_code=403, detail="Project role does not permit review changes")
+
+
+@router.get(
+    "/tenants/{tenant_id}/projects/{project_id}/reviews",
+    response_model=list[ReviewRead],
+    tags=["reviews"],
+)
+def list_reviews(
+    tenant_id: UUID,
+    project_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: Session = Depends(get_session),
+):
+    _check_tenant(tenant_id, principal)
+    try:
+        ProjectService(session).get(tenant_id, project_id, principal.user_id)
+    except ResourceNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found") from None
+    set_tenant_context(session, tenant_id)
+    return list(session.scalars(
+        select(Review)
+        .where(Review.tenant_id == tenant_id, Review.project_id == project_id)
+        .order_by(Review.created_at.desc(), Review.id)
+    ))
+
+
+@router.post(
+    "/tenants/{tenant_id}/projects/{project_id}/reviews",
+    response_model=ReviewRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["reviews"],
+)
+def create_review(
+    tenant_id: UUID,
+    project_id: UUID,
+    payload: ReviewCreate,
+    principal: Principal = Depends(get_current_principal),
+    session: Session = Depends(get_session),
+):
+    _check_tenant(tenant_id, principal)
+    _require_review_write(tenant_id, project_id, principal.user_id, session)
+    if payload.scope == "document_version" and payload.document_version_id is None:
+        raise HTTPException(status_code=422, detail="Document-version review requires document_version_id")
+    if payload.scope == "project" and payload.document_version_id is not None:
+        raise HTTPException(status_code=422, detail="Project review cannot be bound to a document version")
+    if payload.document_version_id is not None:
+        version = session.scalar(select(DocumentVersion).where(
+            DocumentVersion.tenant_id == tenant_id,
+            DocumentVersion.project_id == project_id,
+            DocumentVersion.id == payload.document_version_id,
+        ))
+        if version is None:
+            raise HTTPException(status_code=404, detail="Document version not found")
+    if payload.assigned_to is not None:
+        membership = session.scalar(select(Membership).where(
+            Membership.tenant_id == tenant_id,
+            Membership.user_id == payload.assigned_to,
+            Membership.status == "active",
+        ))
+        if membership is None:
+            raise HTTPException(status_code=422, detail="Assignee is not an active tenant member")
+    review = Review(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        project_id=project_id,
+        document_version_id=payload.document_version_id,
+        title=payload.title.strip(),
+        scope=payload.scope,
+        status="draft",
+        created_by=principal.user_id,
+        assigned_to=payload.assigned_to,
+        summary=payload.summary,
+        review_metadata={},
+    )
+    session.add(review)
+    session.flush()
+    return review
+
+
+@router.get(
+    "/tenants/{tenant_id}/projects/{project_id}/reviews/{review_id}/findings",
+    response_model=list[FindingRead],
+    tags=["reviews"],
+)
+def list_findings(
+    tenant_id: UUID,
+    project_id: UUID,
+    review_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: Session = Depends(get_session),
+):
+    _check_tenant(tenant_id, principal)
+    try:
+        ProjectService(session).get(tenant_id, project_id, principal.user_id)
+    except ResourceNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found") from None
+    set_tenant_context(session, tenant_id)
+    review = session.scalar(select(Review).where(
+        Review.tenant_id == tenant_id,
+        Review.project_id == project_id,
+        Review.id == review_id,
+    ))
+    if review is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+    return list(session.scalars(
+        select(Finding)
+        .where(
+            Finding.tenant_id == tenant_id,
+            Finding.project_id == project_id,
+            Finding.review_id == review_id,
+        )
+        .order_by(Finding.created_at, Finding.id)
+    ))
+
+
+@router.post(
+    "/tenants/{tenant_id}/projects/{project_id}/reviews/{review_id}/findings",
+    response_model=FindingRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["reviews"],
+)
+def create_finding(
+    tenant_id: UUID,
+    project_id: UUID,
+    review_id: UUID,
+    payload: FindingCreate,
+    principal: Principal = Depends(get_current_principal),
+    session: Session = Depends(get_session),
+):
+    _check_tenant(tenant_id, principal)
+    _require_review_write(tenant_id, project_id, principal.user_id, session)
+    set_tenant_context(session, tenant_id)
+    review = session.scalar(select(Review).where(
+        Review.tenant_id == tenant_id,
+        Review.project_id == project_id,
+        Review.id == review_id,
+    ))
+    if review is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+    finding = Finding(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        project_id=project_id,
+        review_id=review_id,
+        classification=payload.classification,
+        severity=payload.severity,
+        status="open",
+        title=payload.title.strip(),
+        description=payload.description,
+        normative_reference=payload.normative_reference,
+        requirement_reference=payload.requirement_reference,
+        recommendation=payload.recommendation,
+        created_by=principal.user_id,
+    )
+    session.add(finding)
+    session.flush()
+    return finding
+
+
+@router.get(
+    "/tenants/{tenant_id}/projects/{project_id}/findings/{finding_id}/evidence",
+    response_model=list[EvidenceRead],
+    tags=["evidence"],
+)
+def list_evidence(
+    tenant_id: UUID,
+    project_id: UUID,
+    finding_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: Session = Depends(get_session),
+):
+    _check_tenant(tenant_id, principal)
+    try:
+        ProjectService(session).get(tenant_id, project_id, principal.user_id)
+    except ResourceNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found") from None
+    set_tenant_context(session, tenant_id)
+    finding = session.scalar(select(Finding).where(
+        Finding.tenant_id == tenant_id,
+        Finding.project_id == project_id,
+        Finding.id == finding_id,
+    ))
+    if finding is None:
+        raise HTTPException(status_code=404, detail="Finding not found")
+    rows = session.scalars(
+        select(Evidence)
+        .where(
+            Evidence.tenant_id == tenant_id,
+            Evidence.project_id == project_id,
+            Evidence.finding_id == finding_id,
+        )
+        .order_by(Evidence.created_at, Evidence.id)
+    )
+    return [
+        EvidenceRead(
+            id=item.id,
+            tenant_id=item.tenant_id,
+            project_id=item.project_id,
+            finding_id=item.finding_id,
+            evidence_type=item.evidence_type,
+            relation=item.relation,
+            source_fragment_id=item.source_fragment_id,
+            locator=_public_locator(item.locator or {}),
+            excerpt=(item.excerpt or "")[:4000] or None,
+            reference_label=item.reference_label,
+            reference_uri=item.reference_uri,
+            created_by=item.created_by,
+            created_at=item.created_at,
+        )
+        for item in rows
+    ]
+
+
+@router.post(
+    "/tenants/{tenant_id}/projects/{project_id}/findings/{finding_id}/evidence",
+    response_model=EvidenceRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["evidence"],
+)
+def create_evidence(
+    tenant_id: UUID,
+    project_id: UUID,
+    finding_id: UUID,
+    payload: EvidenceCreate,
+    principal: Principal = Depends(get_current_principal),
+    session: Session = Depends(get_session),
+):
+    _check_tenant(tenant_id, principal)
+    _require_review_write(tenant_id, project_id, principal.user_id, session)
+    set_tenant_context(session, tenant_id)
+    finding = session.scalar(select(Finding).where(
+        Finding.tenant_id == tenant_id,
+        Finding.project_id == project_id,
+        Finding.id == finding_id,
+    ))
+    if finding is None:
+        raise HTTPException(status_code=404, detail="Finding not found")
+    if payload.evidence_type == "source_fragment":
+        if payload.source_fragment_id is None:
+            raise HTTPException(status_code=422, detail="Source-fragment evidence requires source_fragment_id")
+        fragment = session.scalar(select(SourceFragment).where(
+            SourceFragment.tenant_id == tenant_id,
+            SourceFragment.project_id == project_id,
+            SourceFragment.id == payload.source_fragment_id,
+        ))
+        if fragment is None:
+            raise HTTPException(status_code=404, detail="Source fragment not found")
+    elif payload.source_fragment_id is not None:
+        raise HTTPException(status_code=422, detail="Only source-fragment evidence may reference a source fragment")
+    if payload.evidence_type == "note" and not (payload.excerpt or "").strip():
+        raise HTTPException(status_code=422, detail="Note evidence requires excerpt text")
+    if payload.evidence_type == "external_reference" and not (payload.reference_uri or "").strip():
+        raise HTTPException(status_code=422, detail="External-reference evidence requires reference_uri")
+
+    evidence = Evidence(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        project_id=project_id,
+        finding_id=finding_id,
+        evidence_type=payload.evidence_type,
+        relation=payload.relation,
+        source_fragment_id=payload.source_fragment_id,
+        locator=_public_locator(payload.locator),
+        excerpt=(payload.excerpt or "")[:4000] or None,
+        reference_label=payload.reference_label,
+        reference_uri=payload.reference_uri,
+        created_by=principal.user_id,
+    )
+    session.add(evidence)
+    session.flush()
+    return EvidenceRead(
+        id=evidence.id,
+        tenant_id=evidence.tenant_id,
+        project_id=evidence.project_id,
+        finding_id=evidence.finding_id,
+        evidence_type=evidence.evidence_type,
+        relation=evidence.relation,
+        source_fragment_id=evidence.source_fragment_id,
+        locator=evidence.locator,
+        excerpt=evidence.excerpt,
+        reference_label=evidence.reference_label,
+        reference_uri=evidence.reference_uri,
+        created_by=evidence.created_by,
+        created_at=evidence.created_at,
+    )
