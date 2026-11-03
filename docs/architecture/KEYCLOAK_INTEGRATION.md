@@ -112,10 +112,12 @@ For a local development cluster:
 
 In the Bionic realm, configure the Bionic OIDC client (the client used by Stack's oauth2-proxy) so that its access token has:
 
-- `aud` containing `pea-api`. Create a Keycloak client with ID `pea-api` as the API audience, then add an Audience protocol mapper to the Bionic OIDC client's dedicated scope. Set Included Client Audience to `pea-api`, Add to access token = On, Add to ID token = Off.
-- `tenant_id` containing the UUID of the selected PEA tenant. Add a User Attribute protocol mapper: User Attribute = `tenant_id`, Token Claim Name = `tenant_id`, JSON Type = String, Add to access token = On, Add to ID token = Off.
+1. Create a Keycloak client with ID `pea-api` as the API audience. It is not a browser login client; disable Standard Flow, Direct Access Grants and Service Accounts.
+2. Import the client-scope template [pea-api-context-client-scope.json](../../infra/keycloak/pea-api-context-client-scope.json) under **Client scopes → Create client scope → Import**.
+3. Attach `pea-api-context` to the Bionic oauth2-proxy client as a **Default** client scope. Do not attach it only as Optional.
+4. Set the `tenant_id` user attribute on each Keycloak user to the PEA tenant UUID.
 
-Set the `tenant_id` user attribute on each Keycloak user to the PEA tenant UUID. This is only a tenant selector, not an authorization grant: PEA still checks the user's active membership and project access. The current first integration uses one active tenant per token; a tenant-switching flow will be needed before one identity can operate in multiple tenants without reauthentication.
+The imported scope adds `aud` containing `pea-api` and the `tenant_id` String claim to the access token only (not the ID token). This is only a tenant selector, not an authorization grant: PEA still checks the user's active membership and project access. The current first integration uses one active tenant per token; a tenant-switching flow will be needed before one identity can operate in multiple tenants without reauthentication.
 
 Before configuring `OIDC_ISSUER`, inspect the realm's OpenID discovery document at `{issuer}/.well-known/openid-configuration` and copy its exact `issuer` value. Do not infer or hand-edit the issuer URL. For a local PEA process on the host, forward Keycloak to port 8080 and set `OIDC_JWKS_URL` to the realm's `protocol/openid-connect/certs` endpoint through that forwarded port. The public issuer and the private JWKS retrieval URL may differ, but the token's `iss` must match `OIDC_ISSUER` exactly.
 
