@@ -12,6 +12,7 @@ from app.api.dependencies import get_document_upload_service
 from app.api.schemas import (
     DocumentCreate,
     EvidenceCreate,
+    FindingStatusUpdate,
     EvidenceRead,
     FindingCreate,
     FindingRead,
@@ -22,6 +23,7 @@ from app.api.schemas import (
     ProjectCreate,
     ProjectRead,
     ReviewCreate,
+    ReviewStatusUpdate,
     ReviewRead,
     SourceFragmentRead,
     TenantRead,
@@ -30,6 +32,7 @@ from app.storage.config import storage_root
 from app.storage.database import get_session, set_tenant_context
 from app.storage.file_store import LocalFileStore, StorageIntegrityError
 from app.storage.models import (
+    AuditEvent,
     DocumentVersion,
     Evidence,
     Finding,
@@ -876,3 +879,117 @@ def create_evidence(
         created_by=evidence.created_by,
         created_at=evidence.created_at,
     )
+
+
+@router.get(
+    "/tenants/{tenant_id}/projects/{project_id}/reviews/{review_id}",
+    response_model=ReviewRead,
+    tags=["reviews"],
+)
+def get_review(
+    tenant_id: UUID,
+    project_id: UUID,
+    review_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: Session = Depends(get_session),
+):
+    _check_tenant(tenant_id, principal)
+    try:
+        ProjectService(session).get(tenant_id, project_id, principal.user_id)
+    except ResourceNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found") from None
+    set_tenant_context(session, tenant_id)
+    review = session.scalar(select(Review).where(
+        Review.tenant_id == tenant_id,
+        Review.project_id == project_id,
+        Review.id == review_id,
+    ))
+    if review is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+    return review
+
+
+@router.patch(
+    "/tenants/{tenant_id}/projects/{project_id}/reviews/{review_id}",
+    response_model=ReviewRead,
+    tags=["reviews"],
+)
+def update_review_status(
+    tenant_id: UUID,
+    project_id: UUID,
+    review_id: UUID,
+    payload: ReviewStatusUpdate,
+    principal: Principal = Depends(get_current_principal),
+    session: Session = Depends(get_session),
+):
+    _check_tenant(tenant_id, principal)
+    _require_review_write(tenant_id, project_id, principal.user_id, session)
+    set_tenant_context(session, tenant_id)
+    review = session.scalar(select(Review).where(
+        Review.tenant_id == tenant_id,
+        Review.project_id == project_id,
+        Review.id == review_id,
+    ))
+    if review is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+    previous_status = review.status
+    review.status = payload.status
+    if "summary" in payload.model_fields_set:
+        review.summary = payload.summary
+    session.add(AuditEvent(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        actor_user_id=principal.user_id,
+        action="review.status_changed",
+        target_type="review",
+        target_id=review.id,
+        outcome="success",
+        details={"from": previous_status, "to": review.status},
+    ))
+    session.flush()
+    return review
+
+
+@router.patch(
+    "/tenants/{tenant_id}/projects/{project_id}/findings/{finding_id}",
+    response_model=FindingRead,
+    tags=["reviews"],
+)
+def update_finding_status(
+    tenant_id: UUID,
+    project_id: UUID,
+    finding_id: UUID,
+    payload: FindingStatusUpdate,
+    principal: Principal = Depends(get_current_principal),
+    session: Session = Depends(get_session),
+):
+    _check_tenant(tenant_id, principal)
+    _require_review_write(tenant_id, project_id, principal.user_id, session)
+    set_tenant_context(session, tenant_id)
+    finding = session.scalar(select(Finding).where(
+        Finding.tenant_id == tenant_id,
+        Finding.project_id == project_id,
+        Finding.id == finding_id,
+    ))
+    if finding is None:
+        raise HTTPException(status_code=404, detail="Finding not found")
+    previous_status = finding.status
+    finding.status = payload.status
+    if payload.status == "resolved":
+        finding.resolved_by = principal.user_id
+        finding.resolved_at = func.now()
+    elif previous_status == "resolved":
+        finding.resolved_by = None
+        finding.resolved_at = None
+    session.add(AuditEvent(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        actor_user_id=principal.user_id,
+        action="finding.status_changed",
+        target_type="finding",
+        target_id=finding.id,
+        outcome="success",
+        details={"from": previous_status, "to": finding.status},
+    ))
+    session.flush()
+    return finding
