@@ -15,7 +15,12 @@ from app.api import auth
 from app.storage.database import build_session_factory, set_tenant_context
 from app.storage.file_store import LocalFileStore, StorageIntegrityError
 from app.storage.models import (
-    AuditEvent, DocumentVersion, ExternalIdentity, Membership, Tenant, User,
+    AuditEvent,
+    DocumentVersion,
+    ExternalIdentity,
+    Membership,
+    Tenant,
+    User,
 )
 from app.storage.upload_service import DocumentUploadService, UploadAccessDenied, UploadConflict
 
