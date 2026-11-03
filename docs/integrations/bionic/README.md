@@ -1,6 +1,6 @@
 # Оценка и интеграция Bionic
 
-- Статус: сравнительный аудит выполнен; runtime POC не начат.
+- Статус: сравнительный аудит выполнен; POC подготовлен; runtime POC не начат; выбран путь отдельного форка Bionic с адаптацией UI.
 - Дата аудита: 2026-11-03.
 - Bionic: https://github.com/bionic-gpt/bionic-gpt
 - Проверенная ревизия Bionic: `main`, tree SHA `8a9797c39680ae8421bfaef72f87eb90650e7a09`.
@@ -33,6 +33,9 @@ Personal Expert AI остаётся продуктом и владельцем �
 ## Документы
 
 - [Сравнительный аудит шести направлений](COMPONENTS.md).
+- [План и журнал POC](POC_EXECUTION.md).
+- [План форка и адаптации UI](FORK_UI_PLAN.md).
+- [Экспериментальный Skill проверки документации](skills/project-documentation-review/SKILL.md).
 - [Вариант отдельного сайта на GitHub Pages](GITHUB_PAGES_FRONTEND.md).
 - Общий список задач: [ROADMAP](../../development/ROADMAP.md).
 
