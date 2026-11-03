@@ -1,16 +1,18 @@
-"""JWT authentication boundary for tokens issued by a trusted identity provider."""
+"""Authentication boundary for Keycloak-issued access tokens."""
 import os
 from dataclasses import dataclass
+from functools import lru_cache
 from uuid import UUID
 
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jwt import PyJWKClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.storage.database import get_session
-from app.storage.models import User
+from app.storage.models import ExternalIdentity, Membership, User
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -21,36 +23,90 @@ class Principal:
     tenant_id: UUID
 
 
+@lru_cache(maxsize=4)
+def _jwks_client(url: str) -> PyJWKClient:
+    return PyJWKClient(url, cache_jwk_set=True, lifespan=300, timeout=5)
+
+
+def _unauthorized(detail: str = "Invalid access token") -> HTTPException:
+    return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
+
+
+def _decode_keycloak_token(token: str) -> dict:
+    issuer = os.getenv("OIDC_ISSUER", "").rstrip("/")
+    audience = os.getenv("OIDC_AUDIENCE", "")
+    jwks_url = os.getenv("OIDC_JWKS_URL", "")
+    if not issuer or not audience or not jwks_url:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OIDC authentication is not configured",
+        )
+    try:
+        signing_key = _jwks_client(jwks_url).get_signing_key_from_jwt(token)
+        return jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            issuer=issuer,
+            audience=audience,
+            options={
+                "require": ["exp", "iat", "sub", "iss", "aud", "tenant_id"],
+                "verify_signature": True,
+                "verify_exp": True,
+                "verify_iat": True,
+                "verify_iss": True,
+                "verify_aud": True,
+            },
+            leeway=30,
+        )
+    except (jwt.PyJWTError, ValueError, TypeError):
+        raise _unauthorized() from None
+
+
 def get_current_principal(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
     session: Session = Depends(get_session),
 ) -> Principal:
-    """Verify a signed JWT; never trust user or tenant IDs from request payloads."""
-    secret = os.getenv("JWT_SECRET")
-    issuer = os.getenv("JWT_ISSUER")
-    audience = os.getenv("JWT_AUDIENCE")
-    if not secret or len(secret) < 32 or not issuer or not audience:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="JWT authentication is not configured",
-        )
+    """Verify Keycloak signature and resolve an explicitly provisioned PEA identity."""
     if credentials is None or credentials.scheme.lower() != "bearer":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Bearer token required")
-    try:
-        claims = jwt.decode(
-            credentials.credentials,
-            secret,
-            algorithms=["HS256"],
-            issuer=issuer,
-            audience=audience,
-            options={"require": ["exp", "iat", "sub", "tenant_id", "iss", "aud"]},
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Bearer token required",
+            headers={"WWW-Authenticate": "Bearer"},
         )
-        user_id = UUID(claims["sub"])
-        tenant_id = UUID(claims["tenant_id"])
-    except (jwt.InvalidTokenError, KeyError, TypeError, ValueError):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid access token") from None
 
-    user = session.scalar(select(User).where(User.id == user_id, User.status == "active"))
+    claims = _decode_keycloak_token(credentials.credentials)
+    issuer = claims.get("iss")
+    subject = claims.get("sub")
+    try:
+        tenant_id = UUID(str(claims.get("tenant_id")))
+    except (TypeError, ValueError):
+        raise _unauthorized() from None
+    if not isinstance(issuer, str) or not issuer or not isinstance(subject, str) or not subject:
+        raise _unauthorized()
+
+    identity = session.scalar(
+        select(ExternalIdentity).where(
+            ExternalIdentity.issuer == issuer,
+            ExternalIdentity.subject == subject,
+            ExternalIdentity.status == "active",
+        )
+    )
+    if identity is None:
+        raise _unauthorized("External identity is not provisioned")
+
+    user = session.scalar(select(User).where(User.id == identity.user_id, User.status == "active"))
     if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive or unknown user")
-    return Principal(user_id=user_id, tenant_id=tenant_id)
+        raise _unauthorized("Inactive or unknown user")
+
+    membership = session.scalar(
+        select(Membership).where(
+            Membership.tenant_id == tenant_id,
+            Membership.user_id == user.id,
+            Membership.status == "active",
+        )
+    )
+    if membership is None:
+        raise _unauthorized("User has no active membership in this tenant")
+
+    return Principal(user_id=user.id, tenant_id=tenant_id)
