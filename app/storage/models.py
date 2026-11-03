@@ -434,3 +434,149 @@ class ExternalIdentity(Base, TimestampMixin):
         Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+
+
+class Review(Base, TimestampMixin):
+    """A structured review session for a project or a specific document version."""
+
+    __tablename__ = "reviews"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft','in_progress','completed','approved','rejected','cancelled')",
+            name="ck_reviews_status",
+        ),
+        UniqueConstraint("tenant_id", "project_id", "id", name="uq_reviews_parent"),
+        Index("ix_reviews_project_status_created", "tenant_id", "project_id", "status", "created_at"),
+        ForeignKeyConstraint(
+            ["tenant_id", "project_id"],
+            ["projects.tenant_id", "projects.id"],
+            name="fk_reviews_project_tenant",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "project_id", "document_version_id"],
+            ["document_versions.tenant_id", "document_versions.project_id", "document_versions.id"],
+            name="fk_reviews_document_version_parent",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "created_by"],
+            ["memberships.tenant_id", "memberships.user_id"],
+            name="fk_reviews_creator_membership",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "assigned_to"],
+            ["memberships.tenant_id", "memberships.user_id"],
+            name="fk_reviews_assignee_membership",
+        ),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    tenant_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("tenants.id"), nullable=False)
+    project_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("projects.id"), nullable=False)
+    document_version_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("document_versions.id"))
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    scope: Mapped[str] = mapped_column(String(40), nullable=False, default="project")
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="draft")
+    created_by: Mapped[UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
+    assigned_to: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    summary: Mapped[str | None] = mapped_column(Text)
+    review_metadata: Mapped[dict[str, Any]] = mapped_column("metadata", JSON_TYPE, nullable=False, default=dict)
+
+
+class Finding(Base, TimestampMixin):
+    """A review result with an explicit classification, severity and lifecycle."""
+
+    __tablename__ = "findings"
+    __table_args__ = (
+        CheckConstraint(
+            "classification IN ('violation','evidence_gap','inconsistency','observation')",
+            name="ck_findings_classification",
+        ),
+        CheckConstraint("severity IN ('info','minor','major','critical')", name="ck_findings_severity"),
+        CheckConstraint(
+            "status IN ('open','accepted','rejected','resolved','waived')",
+            name="ck_findings_status",
+        ),
+        UniqueConstraint("tenant_id", "project_id", "id", name="uq_findings_parent"),
+        Index("ix_findings_review_status", "tenant_id", "review_id", "status"),
+        Index("ix_findings_project_severity", "tenant_id", "project_id", "severity"),
+        ForeignKeyConstraint(
+            ["tenant_id", "project_id", "review_id"],
+            ["reviews.tenant_id", "reviews.project_id", "reviews.id"],
+            name="fk_findings_review_parent",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "created_by"],
+            ["memberships.tenant_id", "memberships.user_id"],
+            name="fk_findings_creator_membership",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "resolved_by"],
+            ["memberships.tenant_id", "memberships.user_id"],
+            name="fk_findings_resolver_membership",
+        ),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    tenant_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("tenants.id"), nullable=False)
+    project_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("projects.id"), nullable=False)
+    review_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("reviews.id"), nullable=False)
+    classification: Mapped[str] = mapped_column(String(30), nullable=False)
+    severity: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    normative_reference: Mapped[str | None] = mapped_column(String(500))
+    requirement_reference: Mapped[str | None] = mapped_column(String(500))
+    recommendation: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
+    resolved_by: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Evidence(Base):
+    """A provenance-preserving link between a finding and its source evidence."""
+
+    __tablename__ = "evidence"
+    __table_args__ = (
+        CheckConstraint(
+            "evidence_type IN ('source_fragment','note','external_reference')",
+            name="ck_evidence_type",
+        ),
+        CheckConstraint(
+            "relation IN ('supports','contradicts','context')",
+            name="ck_evidence_relation",
+        ),
+        CheckConstraint(
+            "(evidence_type = 'source_fragment' AND source_fragment_id IS NOT NULL) OR "
+            "(evidence_type <> 'source_fragment' AND source_fragment_id IS NULL)",
+            name="ck_evidence_source_fragment_required",
+        ),
+        Index("ix_evidence_finding_created", "tenant_id", "finding_id", "created_at"),
+        Index("ix_evidence_source_fragment", "source_fragment_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "project_id", "finding_id"],
+            ["findings.tenant_id", "findings.project_id", "findings.id"],
+            name="fk_evidence_finding_parent",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "project_id", "source_fragment_id"],
+            ["source_fragments.tenant_id", "source_fragments.project_id", "source_fragments.id"],
+            name="fk_evidence_source_fragment_parent",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "created_by"],
+            ["memberships.tenant_id", "memberships.user_id"],
+            name="fk_evidence_creator_membership",
+        ),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    tenant_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("tenants.id"), nullable=False)
+    project_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("projects.id"), nullable=False)
+    finding_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("findings.id"), nullable=False)
+    evidence_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    relation: Mapped[str] = mapped_column(String(20), nullable=False, default="supports")
+    source_fragment_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("source_fragments.id"))
+    locator: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, nullable=False, default=dict)
+    excerpt: Mapped[str | None] = mapped_column(Text)
+    reference_label: Mapped[str | None] = mapped_column(String(500))
+    reference_uri: Mapped[str | None] = mapped_column(String(2000))
+    created_by: Mapped[UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
