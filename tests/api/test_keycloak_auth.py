@@ -94,12 +94,13 @@ def test_principal_requires_provisioned_identity_and_active_membership(signing_k
 
     identity = SimpleNamespace(user_id=user_id)
     user = SimpleNamespace(id=user_id)
+    tenant = SimpleNamespace(id=tenant_id, status="active")
     membership = SimpleNamespace(status="active")
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
 
     principal = auth.get_current_principal(
         credentials=credentials,
-        session=Session([identity, user, membership]),
+        session=Session([identity, user, tenant, membership]),
     )
 
     assert principal.user_id == user_id
