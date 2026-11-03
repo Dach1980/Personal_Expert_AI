@@ -1,0 +1,17 @@
+{
+  "clientId": "pea-api",
+  "name": "Personal Expert AI API",
+  "description": "Resource audience for Personal Expert AI API access tokens. This client is not used for browser login.",
+  "enabled": true,
+  "protocol": "openid-connect",
+  "bearerOnly": true,
+  "publicClient": false,
+  "standardFlowEnabled": false,
+  "implicitFlowEnabled": false,
+  "directAccessGrantsEnabled": false,
+  "serviceAccountsEnabled": false,
+  "frontchannelLogout": false,
+  "attributes": {
+    "client.use.lightweight.access.token.enabled": "false"
+  }
+}
