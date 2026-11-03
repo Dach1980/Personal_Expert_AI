@@ -356,6 +356,11 @@ def list_source_fragments(
     response_model=SourceFragmentRead,
     tags=["evidence"],
 )
+@router.get(
+    "/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}/source-fragments/{fragment_id}/preview",
+    response_model=SourceFragmentRead,
+    tags=["evidence"],
+)
 def get_source_fragment(
     tenant_id: UUID,
     project_id: UUID,
