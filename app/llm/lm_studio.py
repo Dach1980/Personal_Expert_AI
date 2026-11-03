@@ -58,7 +58,8 @@ def _as_dict(item: Any) -> dict[str, Any]:
     dump = getattr(item, "model_dump", None)
     if callable(dump):
         return dump()
-    return {}
+    attributes = getattr(item, "__dict__", None)
+    return dict(attributes) if isinstance(attributes, dict) else {}
 
 
 class LMStudioProvider:
