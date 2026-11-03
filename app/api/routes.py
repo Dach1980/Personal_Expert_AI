@@ -37,7 +37,6 @@ from app.storage.models import (
     Evidence,
     Finding,
     KnowledgeItem,
-    Membership,
     ProcessingArtifact,
     ProcessingRun,
     Review,
@@ -648,13 +647,14 @@ def create_review(
         if version is None:
             raise HTTPException(status_code=404, detail="Document version not found")
     if payload.assigned_to is not None:
-        membership = session.scalar(select(Membership).where(
-            Membership.tenant_id == tenant_id,
-            Membership.user_id == payload.assigned_to,
-            Membership.status == "active",
-        ))
-        if membership is None:
-            raise HTTPException(status_code=422, detail="Assignee is not an active tenant member")
+        try:
+            DocumentService(session)._require_project_access(
+                tenant_id, project_id, payload.assigned_to
+            )
+        except ResourceNotFoundError:
+            raise HTTPException(
+                status_code=422, detail="Assignee is not an active project member"
+            ) from None
     review = Review(
         id=uuid4(),
         tenant_id=tenant_id,
