@@ -367,6 +367,14 @@ def get_source_fragment(
     except ResourceNotFoundError:
         raise HTTPException(status_code=404, detail="Document not found") from None
     set_tenant_context(session, tenant_id)
+    version = session.scalar(select(DocumentVersion).where(
+        DocumentVersion.tenant_id == tenant_id,
+        DocumentVersion.project_id == project_id,
+        DocumentVersion.document_id == document_id,
+        DocumentVersion.id == version_id,
+    ))
+    if version is None:
+        raise HTTPException(status_code=404, detail="Document version not found")
     fragment = session.scalar(select(SourceFragment).where(
         SourceFragment.tenant_id == tenant_id,
         SourceFragment.project_id == project_id,
@@ -464,6 +472,14 @@ def get_version_artifact_content(
     except ResourceNotFoundError:
         raise HTTPException(status_code=404, detail="Document not found") from None
     set_tenant_context(session, tenant_id)
+    version = session.scalar(select(DocumentVersion).where(
+        DocumentVersion.tenant_id == tenant_id,
+        DocumentVersion.project_id == project_id,
+        DocumentVersion.document_id == document_id,
+        DocumentVersion.id == version_id,
+    ))
+    if version is None:
+        raise HTTPException(status_code=404, detail="Document version not found")
     row = session.execute(
         select(ProcessingArtifact, ProcessingRun)
         .join(ProcessingRun, ProcessingRun.id == ProcessingArtifact.processing_run_id)
