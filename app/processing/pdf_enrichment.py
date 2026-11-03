@@ -27,21 +27,59 @@ MIN_NATIVE_CHARACTERS_PER_AREA = 0.00002
 
 
 def _normalise(value: str) -> str:
-    return re.sub(r"\s+", " ", value).strip().casefold()
+    import unicodedata
+
+    return re.sub(r"\s+", " ", unicodedata.normalize("NFKC", value)).strip().casefold()
 
 
-def _is_duplicate(candidate: str, native_text: str) -> bool:
+def _native_word_regions(page: Any) -> list[tuple[str, tuple[float, float, float, float]]]:
+    """Return native PDF words with their own page-space bounding boxes."""
+    regions: list[tuple[str, tuple[float, float, float, float]]] = []
+    for item in page.get_text("words", sort=True):
+        if len(item) < 5:
+            continue
+        token = _normalise(str(item[4]))
+        if token:
+            regions.append((token, (float(item[0]), float(item[1]), float(item[2]), float(item[3]))))
+    return regions
+
+
+def _overlap_ratio(
+    first: tuple[float, float, float, float],
+    second: tuple[float, float, float, float],
+) -> float:
+    left = max(first[0], second[0])
+    top = max(first[1], second[1])
+    right = min(first[2], second[2])
+    bottom = min(first[3], second[3])
+    intersection = max(0.0, right - left) * max(0.0, bottom - top)
+    first_area = max(0.0, first[2] - first[0]) * max(0.0, first[3] - first[1])
+    second_area = max(0.0, second[2] - second[0]) * max(0.0, second[3] - second[1])
+    smallest = min(first_area, second_area)
+    return intersection / smallest if smallest > 0 else 0.0
+
+
+def _is_spatial_duplicate(
+    candidate: str,
+    bbox_pdf_points: tuple[float, float, float, float],
+    native_words: list[tuple[str, tuple[float, float, float, float]]],
+) -> bool:
+    """Deduplicate only the same token at the same physical page location."""
     candidate_norm = _normalise(candidate)
-    native_norm = _normalise(native_text)
-    if not candidate_norm or not native_norm:
+    if not candidate_norm:
         return False
-    if candidate_norm in native_norm:
-        return True
-    # OCR often changes a few glyphs. Avoid fuzzy matching short fragments.
-    if len(candidate_norm) >= 40 and len(native_norm) >= 40:
-        from difflib import SequenceMatcher
-        return SequenceMatcher(None, candidate_norm, native_norm).ratio() >= 0.94
-    return False
+    return any(
+        candidate_norm == native_token and _overlap_ratio(bbox_pdf_points, native_bbox) >= 0.5
+        for native_token, native_bbox in native_words
+    )
+
+
+def _lines_from_ocr_words(words: list[dict[str, Any]]) -> str:
+    grouped: dict[tuple[int, int, int], list[str]] = {}
+    for word in words:
+        key = (int(word.get("block", 0)), int(word.get("paragraph", 0)), int(word.get("line", 0)))
+        grouped.setdefault(key, []).append(str(word["text"]))
+    return "\n".join(" ".join(parts) for parts in grouped.values() if parts)
 
 
 def _ocr_image(image_bytes: bytes, *, language: str, config: str) -> dict[str, Any]:
@@ -163,20 +201,20 @@ def enrich_pdf(
                 if ocr_result.get("available"):
                     scale_x = float(page.rect.width) / pixmap.width
                     scale_y = float(page.rect.height) / pixmap.height
-                    unique_words = [
-                        word for word in ocr_result["words"]
-                        if not _is_duplicate(word["text"], native_text)
-                    ]
-                    for word in unique_words:
+                    native_words = _native_word_regions(page)
+                    unique_words: list[dict[str, Any]] = []
+                    for raw_word in ocr_result["words"]:
+                        word = dict(raw_word)
                         x0, y0, x1, y1 = word.pop("bbox_px")
-                        word["bbox_pdf_points"] = [
-                            round(x0 * scale_x, 3), round(y0 * scale_y, 3),
-                            round(x1 * scale_x, 3), round(y1 * scale_y, 3),
-                        ]
-                    ocr_text = "\n".join(
-                        line for line in ocr_result.get("text", "").splitlines()
-                        if not _is_duplicate(line, native_text)
-                    )
+                        bbox_pdf = (
+                            x0 * scale_x, y0 * scale_y, x1 * scale_x, y1 * scale_y,
+                        )
+                        if _is_spatial_duplicate(word["text"], bbox_pdf, native_words):
+                            continue
+                        word["bbox_pdf_points"] = [round(value, 3) for value in bbox_pdf]
+                        unique_words.append(word)
+                    ocr_text = _lines_from_ocr_words(unique_words)
+                    ocr_result["text"] = ocr_text
                     if ocr_text:
                         digest = hashlib.sha256(ocr_text.encode("utf-8")).hexdigest()
                         new_fragments.append(Fragment(
