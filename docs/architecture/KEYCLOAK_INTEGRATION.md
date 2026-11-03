@@ -91,8 +91,9 @@ The Bionic server-side API Adapter now exposes a fixed set of GET routes under `
 - PEA now has an `external_identities` table keyed uniquely by (`issuer`, `subject`) and a migration for it. Unknown external identities are rejected; there is no automatic PEA account or tenant creation.
 - PEA now validates Keycloak RS256/JWKS tokens, resolves the internal user and verifies active tenant membership. Project access remains enforced by the existing project/document services.
 - PEA has initial Review, Finding and Evidence models, migration and tenant/project-scoped create/read/status endpoints with audit events.
-- Bionic now verifies Keycloak RS256/JWKS tokens and has fixed server-side GET adapter routes for projects, documents, versions, source fragments, artifacts and knowledge.
-- Local Keycloak realm/client provisioning, trusted OIDC gateway wiring, external identity provisioning, UI wiring and full end-to-end tests remain outstanding.
+- Bionic now verifies Keycloak RS256/JWKS tokens and has fixed server-side GET adapter routes for projects, documents, versions, source fragments, artifacts, knowledge, reviews, findings and evidence.
+- Bionic's authenticated `/o/{team_id}/pea` workspace page is wired into Documents, Reviews and Knowledge Base navigation. It loads live PEA data through same-origin adapter routes and connects source-fragment locators to rendered page previews.
+- The Keycloak client-scope template and provisioning command are committed, but the audience/tenant mappers still need to be imported into the running Bionic realm and an actual user must be explicitly mapped. Local runtime verification of the Stack OIDC gateway, PEA network reachability, and full login/dialogue/Agent Runtime end-to-end flow remains outstanding.
 - The fork CI no longer attempts to publish Docker images to the upstream GHCR package. Rust verification for the new authentication/adapter commits is still running; only completed successful workflow runs will be considered proof of compilation.
 
 
