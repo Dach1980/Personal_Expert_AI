@@ -38,6 +38,7 @@
 - [Memory Engine](docs/architecture/MEMORY_ENGINE.md)
 - [Security Model](docs/architecture/SECURITY_MODEL.md)
 - [LLM Provider Architecture](docs/architecture/LLM_PROVIDER_ARCHITECTURE.md)
+- [OCR Benchmark methodology](docs/research/OCR_BENCHMARK.md)
 - [PostgreSQL Database Schema](docs/architecture/DATABASE_SCHEMA.md)
 - [ERD](docs/architecture/erd.mmd)
 
