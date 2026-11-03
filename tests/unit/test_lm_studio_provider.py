@@ -150,3 +150,19 @@ def test_tool_calls_are_disabled_unless_explicitly_enabled():
             messages=[{"role": "user", "content": "run tool"}],
             options={"tools": [{"type": "function", "function": {"name": "demo"}}]},
         )
+
+
+def test_structured_output_requires_explicit_capability_and_maps_schema():
+    client = FakeClient()
+    provider = LMStudioProvider(
+        LMStudioConfig(
+            capabilities=ProviderCapabilities(structured_output=True)
+        ),
+        client=client,
+    )
+    provider.generate_structured(
+        model="qwen-local",
+        messages=[{"role": "user", "content": "return JSON"}],
+        schema={"name": "result", "schema": {"type": "object"}},
+    )
+    assert client.chat_calls[-1]["response_format"]["type"] == "json_schema"
