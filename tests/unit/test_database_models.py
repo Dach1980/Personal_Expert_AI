@@ -10,7 +10,7 @@ def test_initial_domain_tables_are_registered() -> None:
         "project_memberships", "documents", "document_versions",
         "processing_runs", "processing_artifacts", "source_fragments",
         "knowledge_items", "knowledge_assertions", "conversations",
-        "messages", "memory_entries", "audit_events", "upload_operations", "external_identities",
+        "messages", "memory_entries", "audit_events", "upload_operations", "external_identities", "reviews", "findings", "evidence",
     }
     assert expected == set(Base.metadata.tables)
 
@@ -77,3 +77,29 @@ def test_upload_operations_constrain_idempotency_and_state_metadata() -> None:
     assert "ck_upload_operations_checksum" in checks
     assert "ck_upload_operations_validated_metadata" in checks
     assert "ck_upload_operations_completed_version" in checks
+
+
+
+def test_review_finding_evidence_are_tenant_and_project_scoped() -> None:
+    reviews = Base.metadata.tables["reviews"]
+    findings = Base.metadata.tables["findings"]
+    evidence = Base.metadata.tables["evidence"]
+
+    review_fks = {item.name for item in reviews.constraints if isinstance(item, ForeignKeyConstraint)}
+    finding_fks = {item.name for item in findings.constraints if isinstance(item, ForeignKeyConstraint)}
+    evidence_fks = {item.name for item in evidence.constraints if isinstance(item, ForeignKeyConstraint)}
+
+    assert "fk_reviews_project_tenant" in review_fks
+    assert "fk_findings_review_parent" in finding_fks
+    assert "fk_evidence_finding_parent" in evidence_fks
+    assert "fk_evidence_source_fragment_parent" in evidence_fks
+
+
+def test_finding_and_evidence_lifecycle_constraints_are_registered() -> None:
+    findings = Base.metadata.tables["findings"]
+    evidence = Base.metadata.tables["evidence"]
+    finding_checks = {item.name for item in findings.constraints if isinstance(item, CheckConstraint)}
+    evidence_checks = {item.name for item in evidence.constraints if isinstance(item, CheckConstraint)}
+
+    assert {"ck_findings_classification", "ck_findings_severity", "ck_findings_status"} <= finding_checks
+    assert {"ck_evidence_type", "ck_evidence_relation", "ck_evidence_source_fragment_required"} <= evidence_checks
