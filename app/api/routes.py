@@ -15,16 +15,20 @@ from app.api.schemas import (
     DocumentVersionRead,
     KnowledgeItemRead,
     ProcessingArtifactRead,
-    SourceFragmentRead,
     ProjectCreate,
     ProjectRead,
+    SourceFragmentRead,
     TenantRead,
 )
 from app.storage.config import storage_root
 from app.storage.database import get_session, set_tenant_context
 from app.storage.file_store import LocalFileStore, StorageIntegrityError
 from app.storage.models import (
-    DocumentVersion, KnowledgeItem, ProcessingArtifact, ProcessingRun, SourceFragment,
+    DocumentVersion,
+    KnowledgeItem,
+    ProcessingArtifact,
+    ProcessingRun,
+    SourceFragment,
 )
 from app.storage.services import (
     AccessDeniedError,
