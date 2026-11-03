@@ -228,3 +228,26 @@ Request:
 ## 9. Версионирование и совместимость
 
 Изменения breaking contract требуют новой major версии API или согласованного периода миграции. OpenAPI schema тестируется в CI. Contract tests должны подтверждать соответствие backend и UI adapter. Нельзя связывать API с внутренними форматами ответов конкретной LLM.
+
+
+## Реализованные read endpoints для Bionic UI (2026-11-03)
+
+Следующие маршруты реализованы в `app/api/routes.py` и требуют Bearer JWT, tenant из JWT и активное членство/доступ к проекту:
+
+- GET `/api/v1/tenants/{tenant_id}/projects`
+- GET `/api/v1/tenants/{tenant_id}/projects/{project_id}/documents`
+- GET `/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions`
+- GET `/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}`
+- GET `/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}/source-fragments`
+- GET `/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}/source-fragments/{fragment_id}`
+- GET `/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}/artifacts`
+- GET `/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}/artifacts/{artifact_id}/content`
+- GET `/api/v1/tenants/{tenant_id}/projects/{project_id}/knowledge`
+
+Source-fragment responses return a bounded excerpt (up to 4,000 characters), typed locator and extraction provenance. Internal storage keys and filesystem paths are recursively removed from locators. Rendered-page content is restricted to registered `rendered_page` artifacts with PNG/JPEG/WebP media types and is streamed only after the requested tenant/project/document/version relationship has been checked and the stored bytes pass SHA-256 and size verification. Responses are private/no-store and set `X-Content-Type-Options: nosniff`.
+
+The page-artifact endpoint intentionally uses an opaque artifact UUID rather than accepting a storage key or filesystem path from the browser. The UI first lists the rendered-page artifact metadata, then requests the selected artifact content.
+
+**Not implemented yet:** Reviews/Findings/Evidence domain resources and their routes. The current ORM schema has KnowledgeItem, KnowledgeAssertion and SourceFragment, but no Review or Finding entities. Do not present Bionic Reviews as connected until a review domain model, migration, service authorization, API schemas/routes and tenant-isolation tests exist.
+
+**Bionic authentication bridge is also pending.** Personal Expert AI validates trusted HS256 JWTs issued by an identity provider and maps `sub` to its own User UUID plus `tenant_id`. Bionic's existing login/session must not be treated as equivalent without an explicit trusted identity mapping. Do not place a backend service token or JWT signing secret in browser code, local storage, static Pages assets or a public repository.
