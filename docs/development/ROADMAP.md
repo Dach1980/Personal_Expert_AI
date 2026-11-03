@@ -39,7 +39,7 @@
 
 - [x] P0a — provider-neutral contracts и начальный LM Studio OpenAI-compatible adapter: chat, streaming, embeddings, model listing, health check, loopback-only endpoint validation, explicit capability gating и mock-тесты.
 - [ ] P0b — LM Studio runtime smoke tests: Native REST vs OpenAI-compatible API, structured output, tool calling, Vision, cancellation, auth, concurrency, model load/unload, VRAM и network capture. Reranker adapter — отдельная задача.
-- [ ] P1 — AnythingLLM Docker как сменный UI: подключение к backend/LM Studio, workspace-to-project mapping, ACL, API, citations, deletion, container privileges и сетевой трафик.
+- [ ] P1 — Bionic fork как сменный UI/agent runtime: baseline build, branding/navigation, read-only Personal Expert API adapter, project/document mapping, citations, ACL, streaming, Skills и sandbox security. LM Studio runtime tests остаются отдельным blocked gate до появления локального runtime.
 - [x] P2a — общий OCR benchmark runner, Tesseract adapter, CER/WER, опциональные box Precision/Recall/IoU, latency и RSS snapshots; методика и формат Ground Truth описаны в docs/research/OCR_BENCHMARK.md.
 - [ ] P2b — подключить PaddleOCR и EasyOCR adapters и сравнить все движки на одном размеченном русскоязычном инженерном наборе; зафиксировать production выбор отдельным ADR.
 - [ ] P3 — ingestion benchmark на одном обезличенном комплекте документов: качество извлечения, полнота, provenance и устойчивость повторной обработки.
