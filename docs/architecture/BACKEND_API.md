@@ -240,6 +240,7 @@ Request:
 - GET `/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}`
 - GET `/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}/source-fragments`
 - GET `/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}/source-fragments/{fragment_id}`
+- GET `/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}/source-fragments/{fragment_id}/preview` (same safe fragment payload, explicit preview route)
 - GET `/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}/artifacts`
 - GET `/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}/artifacts/{artifact_id}/content`
 - GET `/api/v1/tenants/{tenant_id}/projects/{project_id}/knowledge`
