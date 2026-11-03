@@ -105,3 +105,38 @@ def test_spatial_duplicate_requires_same_token_and_overlapping_box():
     assert not pdf_enrichment._is_spatial_duplicate(
         "Pump", (11.0, 11.0, 39.0, 24.0), native
     )
+
+
+def test_rendered_ocr_coordinates_are_derotated_to_native_pdf_space():
+    document = fitz.open()
+    page = document.new_page(width=595, height=842)
+    page.insert_text((72, 72), "ROTATED")
+    page.set_rotation(90)
+    native_word = page.get_text("words")[0]
+    native_bbox = tuple(float(value) for value in native_word[:4])
+    pixmap = page.get_pixmap(dpi=120, alpha=False)
+
+    rotated_corners = [
+        fitz.Point(native_bbox[0], native_bbox[1]) * page.rotation_matrix,
+        fitz.Point(native_bbox[2], native_bbox[1]) * page.rotation_matrix,
+        fitz.Point(native_bbox[0], native_bbox[3]) * page.rotation_matrix,
+        fitz.Point(native_bbox[2], native_bbox[3]) * page.rotation_matrix,
+    ]
+    rotated_bbox = (
+        min(point.x for point in rotated_corners),
+        min(point.y for point in rotated_corners),
+        max(point.x for point in rotated_corners),
+        max(point.y for point in rotated_corners),
+    )
+    bbox_px = (
+        rotated_bbox[0] * pixmap.width / page.rect.width,
+        rotated_bbox[1] * pixmap.height / page.rect.height,
+        rotated_bbox[2] * pixmap.width / page.rect.width,
+        rotated_bbox[3] * pixmap.height / page.rect.height,
+    )
+
+    recovered = pdf_enrichment._pixel_bbox_to_pdf_points(
+        bbox_px, page=page, pixmap=pixmap
+    )
+    assert all(abs(actual - expected) < 1.0 for actual, expected in zip(recovered, native_bbox))
+    document.close()
