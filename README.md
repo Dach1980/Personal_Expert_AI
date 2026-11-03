@@ -82,13 +82,14 @@ The CI workflow provisions PostgreSQL 16, applies and reverts migrations, checks
 
 ## Предварительный технологический контур
 
-- **UI:** AnythingLLM Docker — кандидат на прототип; собственный frontend остаётся возможным.
-- **LLM runtime:** LM Studio за собственной provider abstraction.
-- **Backend:** Python, FastAPI.
-- **Документный и инженерный движок:** развитие наработок Project Expert AI.
+- **UI и агентная среда:** отдельный форк Bionic с интерфейсом Personal Expert AI; решение принято для изолированного POC, runtime ещё не развёрнут.
+- **LLM runtime:** LM Studio за собственной provider abstraction; облачный fallback запрещён.
+- **Backend и доменная логика:** Python, FastAPI; Personal Expert AI владеет tenant/project/document lifecycle и инженерными проверками.
+- **Документный и инженерный движок:** собственный Document Processing Pipeline и развитие наработок Project Expert AI.
 - **Память:** собственный Memory Engine с идеями Hermes Agent.
-- **Агентная среда:** Bionic — экспериментальная desktop-среда, не production backend.
-- **Хранилище:** PostgreSQL как источник истины; vector/graph технологии выбираются после benchmark.
+- **Хранилище:** PostgreSQL Personal Expert AI как единственный источник истины; Bionic не получает прямой доступ к этой БД.
+
+План форка и журнал испытаний: [Bionic POC](docs/integrations/bionic/POC_EXECUTION.md), [UI fork plan](docs/integrations/bionic/FORK_UI_PLAN.md).
 
 ## Безопасность
 
