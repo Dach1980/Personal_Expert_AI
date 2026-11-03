@@ -53,3 +53,21 @@ def test_tenant_scope_accepts_only_the_authenticated_tenant():
     principal = Principal(user_id=uuid4(), tenant_id=tenant_id)
 
     _check_tenant(tenant_id, principal)
+
+
+def test_document_read_routes_are_registered_in_openapi():
+    from app.main import app
+
+    paths = app.openapi()["paths"]
+    expected = [
+        "/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions",
+        "/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}",
+        "/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}/source-fragments",
+        "/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}/source-fragments/{fragment_id}",
+        "/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}/artifacts",
+        "/api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}/artifacts/{artifact_id}/content",
+        "/api/v1/tenants/{tenant_id}/projects/{project_id}/knowledge",
+    ]
+
+    for path in expected:
+        assert path in paths
