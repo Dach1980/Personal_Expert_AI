@@ -165,3 +165,40 @@
 ## Правило принятия решений
 
 Не фиксировать технологию только по популярности или маркетинговым заявлениям. Для существенного выбора создать ADR с альтернативами, benchmark, рисками и критериями пересмотра. Пункт roadmap считается выполненным только после реализации и проверок, а не после написания документации.
+
+## Фаза 0.7. Сравнительный аудит и оценка интеграции Bionic — в работе
+
+Цель: определить, какие общеплатформенные компоненты Bionic выгоднее повторно использовать, а какие части Personal Expert AI необходимо сохранить как собственное инженерное ядро. Полная замена допускается только после POC и проверок безопасности, совместимости и качества.
+
+Исходные точки аудита:
+- Personal Expert AI: `main`, commit `7858c46eb4545efef7f78e4d3167b61266822484`.
+- Bionic: `main`, commit/tree `8a9797c39680ae8421bfaef72f87eb90650e7a09`.
+- Метод: статический анализ исходного кода, SQL migrations, запросов и deployment-конфигурации. Runtime, penetration и performance tests не проводились.
+
+Документы:
+- [Сводный аудит компонентов](../integrations/bionic/COMPONENTS.md).
+- [Архитектура отдельного frontend на GitHub Pages](../integrations/bionic/GITHUB_PAGES_FRONTEND.md).
+
+### Направления и задачи
+
+- [x] BIONIC-AUDIT-01 — сравнить хранилище и жизненный цикл данных.
+- [x] BIONIC-AUDIT-02 — сравнить RAG ingestion, chunking, embeddings и retrieval.
+- [x] BIONIC-AUDIT-03 — сравнить users, teams, roles, permissions и RLS.
+- [x] BIONIC-AUDIT-04 — сравнить обработку запросов, историю, streaming и контекст.
+- [x] BIONIC-AUDIT-05 — сравнить agent runtime, tools, Skills, VFS и sandbox.
+- [x] BIONIC-AUDIT-06 — сравнить audit, observability и deployment.
+- [ ] BIONIC-POC-01 — развернуть Bionic в изолированной тестовой среде; проверить версии, миграции, health, базовые сценарии и восстановление.
+- [ ] BIONIC-POC-02 — проверить LM Studio как chat и embedding provider, включая streaming, tool calling, отмену, ошибки и local-only network capture.
+- [ ] BIONIC-POC-03 — провести сравнительный RAG benchmark на одном русскоязычном инженерном наборе с измерением retrieval quality и сохранения точных source locators.
+- [ ] BIONIC-POC-04 — проверить передачу identity и project/tenant authorization без второго источника истины и без обхода Personal Expert AI access checks.
+- [ ] BIONIC-POC-05 — проверить sandbox isolation, filesystem permissions, network egress, prompt injection и межпользовательскую изоляцию.
+- [ ] BIONIC-POC-06 — проверить возможность отдельного frontend на GitHub Pages и интеграцию с self-hosted Bionic backend.
+- [ ] BIONIC-DECISION-01 — по результатам POC утвердить для каждого компонента REUSE / ADAPT / KEEP / REPLACE отдельным ADR.
+
+Критерии допуска к замене:
+1. Нет регрессии по tenant/project isolation и защите документов.
+2. Все ответы и производные данные сохраняют проверяемую связь с immutable DocumentVersion и исходным SourceFragment.
+3. LM Studio работает без скрытого fallback на облачные модели.
+4. Измеримые показатели качества, latency и устойчивости не хуже согласованных порогов.
+5. Есть миграция данных, план отката, backup/restore и проверенные тесты.
+6. Bionic не становится параллельным владельцем проектов, документов и идентичности без отдельного архитектурного решения.
