@@ -1,7 +1,8 @@
 from uuid import uuid4
 
-from fastapi import HTTPException
 import pytest
+
+from fastapi import HTTPException
 
 from app.api.auth import Principal
 from app.api.routes import _check_tenant, _public_locator
