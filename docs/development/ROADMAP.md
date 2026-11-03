@@ -37,9 +37,11 @@
 
 Архитектурные решения зафиксированы в [TARGET_ARCHITECTURE.md](../architecture/TARGET_ARCHITECTURE.md). Прототипы должны подтвердить совместимость компонентов и не переносить бизнес-логику в AnythingLLM или сторонний агент.
 
-- [ ] P0 — LM Studio provider: chat, vision, embeddings, reranker, tool calling, streaming, auth, concurrency и загрузка/переключение моделей. Сначала контракт, adapter и mock-тесты; затем runtime smoke tests на локальной машине.
+- [x] P0a — provider-neutral contracts и начальный LM Studio OpenAI-compatible adapter: chat, streaming, embeddings, model listing, health check, loopback-only endpoint validation, explicit capability gating и mock-тесты.
+- [ ] P0b — LM Studio runtime smoke tests: Native REST vs OpenAI-compatible API, structured output, tool calling, Vision, cancellation, auth, concurrency, model load/unload, VRAM и network capture. Reranker adapter — отдельная задача.
 - [ ] P1 — AnythingLLM Docker как сменный UI: подключение к backend/LM Studio, workspace-to-project mapping, ACL, API, citations, deletion, container privileges и сетевой трафик.
-- [ ] P2 — OCR Benchmark: Tesseract vs PaddleOCR vs EasyOCR на едином воспроизводимом наборе с Ground Truth; CER/WER, координаты, latency и RAM.
+- [x] P2a — общий OCR benchmark runner, Tesseract adapter, CER/WER, опциональные box Precision/Recall/IoU, latency и RSS snapshots; методика и формат Ground Truth описаны в docs/research/OCR_BENCHMARK.md.
+- [ ] P2b — подключить PaddleOCR и EasyOCR adapters и сравнить все движки на одном размеченном русскоязычном инженерном наборе; зафиксировать production выбор отдельным ADR.
 - [ ] P3 — ingestion benchmark на одном обезличенном комплекте документов: качество извлечения, полнота, provenance и устойчивость повторной обработки.
 - [ ] P4 — Memory/Skills prototype: User/Project/Professional/Session scopes, FTS, semantic recall, approval, provenance, versioning и deletion.
 - [ ] P5 — end-to-end интеграция одного проверочного кейса ВК с regression benchmark.
@@ -89,8 +91,10 @@
 - [x] Опциональный локальный Tesseract OCR с координатами слов, конвертацией в PDF points и фильтрацией дубликатов.
 - [x] OCR-инспекция встроенных растровых изображений с сохранением исходного locator.
 - [x] Единая structured page model, объединяющая native text, OCR, геометрию и render provenance.
-- [ ] OCR Benchmark на размеченном наборе: CER/WER, локализация текста, качество на русском инженерном материале, latency и RAM.
-- [ ] Исправить дедупликацию: учитывать геометрию и локальное совпадение строк/блоков, не удалять одинаковые слова в разных областях страницы.
+- [x] OCR benchmark runner и синтетический Tesseract smoke test; CER/WER, box metrics, latency и RSS snapshots при наличии psutil.
+- [ ] Измерить OCR accuracy на реальном русскоязычном инженерном наборе с Ground Truth; synthetic smoke test не считается таким измерением.
+- [x] Исправить базовую OCR-дедупликацию: совпадение токена проверяется по пересечению локальных native/OCR word boxes, а не по наличию слова где-либо на странице.
+- [ ] Проверить качество spatial dedup на размеченных реальных страницах, поворотах, масштабах и сложных шрифтах.
 - [ ] Сравнить OCR providers (Tesseract, PaddleOCR, EasyOCR) через изолированные adapters; выбрать production default по результатам benchmark.
 - [ ] Семантическое понимание схем и чертежей через локальную vision-language model после benchmark.
 - [ ] PDF vector drawings / paths and CAD-aware geometry.
