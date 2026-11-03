@@ -54,6 +54,8 @@ def test_benchmark_runner_is_engine_agnostic_and_records_errors():
     assert report["results"][0]["status"] == "ok"
     assert report["results"][0]["cer"] == 0.0
     assert report["results"][0]["wer"] == 0.0
+    assert report["summary"][0]["mean_cer"] == 0.0
+    assert report["summary"][0]["successful_cases"] == 1
 
 
 def test_benchmark_runner_keeps_engine_failures_in_report():
