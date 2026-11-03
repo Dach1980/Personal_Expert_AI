@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.storage.database import get_session
-from app.storage.models import ExternalIdentity, Membership, User
+from app.storage.models import ExternalIdentity, Membership, Tenant, User
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -98,6 +98,12 @@ def get_current_principal(
     user = session.scalar(select(User).where(User.id == identity.user_id, User.status == "active"))
     if user is None:
         raise _unauthorized("Inactive or unknown user")
+
+    tenant = session.scalar(
+        select(Tenant).where(Tenant.id == tenant_id, Tenant.status == "active")
+    )
+    if tenant is None:
+        raise _unauthorized("Tenant is inactive or unknown")
 
     membership = session.scalar(
         select(Membership).where(
