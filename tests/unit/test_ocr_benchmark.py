@@ -69,3 +69,32 @@ def test_benchmark_runner_keeps_engine_failures_in_report():
     )
     assert report["results"][0]["status"] == "error"
     assert report["results"][0]["error_type"] == "RuntimeError"
+
+
+def test_tesseract_adapter_runs_on_a_synthetic_fixture_when_installed():
+    import io
+
+    import pytest
+
+    pytesseract = pytest.importorskip("pytesseract")
+    from PIL import Image, ImageDraw, ImageFont
+
+    try:
+        pytesseract.get_tesseract_version()
+        font = ImageFont.truetype("DejaVuSans.ttf", 48)
+    except (pytesseract.TesseractNotFoundError, OSError):
+        pytest.skip("Tesseract executable or DejaVuSans font is unavailable")
+
+    image = Image.new("RGB", (1000, 140), "white")
+    ImageDraw.Draw(image).text((30, 35), "PROJECT 123", fill="black", font=font)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+
+    from app.processing.ocr_benchmark import TesseractEngine
+
+    result = TesseractEngine().recognize(
+        buffer.getvalue(), language="eng", config="--psm 7"
+    )
+    assert result["text"].strip()
+    assert len(result["words"]) >= 2
+    assert result["version"]
