@@ -59,6 +59,36 @@ def _overlap_ratio(
     return intersection / smallest if smallest > 0 else 0.0
 
 
+def _pixel_bbox_to_pdf_points(
+    bbox_px: tuple[float, float, float, float],
+    *,
+    page: Any,
+    pixmap: Any,
+) -> tuple[float, float, float, float]:
+    """Map rendered (rotation-aware) pixel bounds to unrotated PDF page points."""
+    import pymupdf
+
+    scale_x = float(page.rect.width) / pixmap.width
+    scale_y = float(page.rect.height) / pixmap.height
+    x0, y0, x1, y1 = bbox_px
+    rotated_corners = (
+        (x0 * scale_x, y0 * scale_y),
+        (x1 * scale_x, y0 * scale_y),
+        (x0 * scale_x, y1 * scale_y),
+        (x1 * scale_x, y1 * scale_y),
+    )
+    unrotated = [
+        pymupdf.Point(x, y) * page.derotation_matrix
+        for x, y in rotated_corners
+    ]
+    return (
+        min(point.x for point in unrotated),
+        min(point.y for point in unrotated),
+        max(point.x for point in unrotated),
+        max(point.y for point in unrotated),
+    )
+
+
 def _is_spatial_duplicate(
     candidate: str,
     bbox_pdf_points: tuple[float, float, float, float],
@@ -199,15 +229,13 @@ def enrich_pdf(
                 )
                 ocr_available = bool(ocr_result.get("available"))
                 if ocr_result.get("available"):
-                    scale_x = float(page.rect.width) / pixmap.width
-                    scale_y = float(page.rect.height) / pixmap.height
                     native_words = _native_word_regions(page)
                     unique_words: list[dict[str, Any]] = []
                     for raw_word in ocr_result["words"]:
                         word = dict(raw_word)
-                        x0, y0, x1, y1 = word.pop("bbox_px")
-                        bbox_pdf = (
-                            x0 * scale_x, y0 * scale_y, x1 * scale_x, y1 * scale_y,
+                        bbox_px = tuple(float(value) for value in word.pop("bbox_px"))
+                        bbox_pdf = _pixel_bbox_to_pdf_points(
+                            bbox_px, page=page, pixmap=pixmap,
                         )
                         if _is_spatial_duplicate(word["text"], bbox_pdf, native_words):
                             continue
@@ -215,10 +243,11 @@ def enrich_pdf(
                         unique_words.append(word)
                     ocr_text = _lines_from_ocr_words(unique_words)
                     ocr_result["text"] = ocr_text
+                    ocr_result["word_count"] = len(unique_words)
                     if ocr_text:
                         digest = hashlib.sha256(ocr_text.encode("utf-8")).hexdigest()
                         new_fragments.append(Fragment(
-                            "ocr_text", {"page": page_number, "coordinate_space": "pdf-points"},
+                            "ocr_text", {"page": page_number, "coordinate_space": "pdf-points-unrotated"},
                             ocr_text, digest, "tesseract-ocr", str(ocr_result.get("version", "unknown")),
                             {"language": ocr_language, "word_count": len(unique_words),
                              "mean_confidence": round(
