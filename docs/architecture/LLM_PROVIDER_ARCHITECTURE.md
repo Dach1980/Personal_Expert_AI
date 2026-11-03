@@ -81,3 +81,21 @@ Embeddings имеют отдельный manifest. Индексы разных e
 ## 13. Критерии готовности
 
 Adapter готов, когда проходит contract и integration tests заявленных capabilities, сообщает unsupported features, корректно обрабатывает отмену и ошибки, не раскрывает секреты и не вызывает внешние сервисы вне разрешённой политики.
+
+## 14. Начальная реализация LM Studio Provider
+
+Первый provider-neutral контракт и адаптер находятся в:
+- app/llm/contracts.py — capabilities, типизированные результаты и протокол провайдера;
+- app/llm/lm_studio.py — LM Studio через OpenAI-compatible API;
+- tests/unit/test_lm_studio_provider.py — mock contract tests без запущенного LM Studio.
+
+Реализованы chat completion, streaming events, embeddings, model listing, health check, vision и structured-output entry points. Возможности vision, tool calling и structured output включаются явно через ProviderCapabilities; неподдерживаемая или неразрешённая capability возвращает UnsupportedCapability, а не имитирует успешную работу.
+
+Адаптер принимает только loopback endpoint (localhost, 127.0.0.1, ::1). Удалённые адреса отклоняются, чтобы случайная конфигурация не отправляла документы во внешнюю сеть. Секрет API не включается в сообщения об ошибках.
+
+Текущие ограничения:
+- используется OpenAI-compatible API; Native REST API LM Studio ещё не сравнивался;
+- reranker adapter пока отсутствует;
+- capability flags должны задаваться по фактической конфигурации загруженной модели;
+- mock tests подтверждают mapping/контракт, но не совместимость с работающим LM Studio;
+- runtime smoke tests, отмена запросов, реальный tool calling, Vision, concurrency, VRAM и local-only network capture остаются обязательными испытаниями на целевой машине.
