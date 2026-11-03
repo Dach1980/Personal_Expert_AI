@@ -252,3 +252,18 @@ The page-artifact endpoint intentionally uses an opaque artifact UUID rather tha
 **Not implemented yet:** Reviews/Findings/Evidence domain resources and their routes. The current ORM schema has KnowledgeItem, KnowledgeAssertion and SourceFragment, but no Review or Finding entities. Do not present Bionic Reviews as connected until a review domain model, migration, service authorization, API schemas/routes and tenant-isolation tests exist.
 
 **Bionic authentication bridge is also pending.** The approved target is Keycloak as the shared identity provider. The existing PEA HS256/internal-UUID token contract is not yet Keycloak-compatible; an explicit `(issuer, subject)` mapping and RS256/JWKS validation are required. The current Bionic JWT extractor only decodes the payload and does not verify its signature, so its identity claims must not be trusted until the Bionic trust boundary is fixed. See [KEYCLOAK_INTEGRATION.md](KEYCLOAK_INTEGRATION.md) for the security requirements and implementation sequence. Personal Expert AI validates trusted HS256 JWTs issued by an identity provider and maps `sub` to its own User UUID plus `tenant_id`. Bionic's existing login/session must not be treated as equivalent without an explicit trusted identity mapping. Do not place a backend service token or JWT signing secret in browser code, local storage, static Pages assets or a public repository.
+
+
+## Keycloak identity and review API additions
+
+The API now accepts Keycloak access tokens only when `OIDC_ISSUER`, `OIDC_AUDIENCE` and `OIDC_JWKS_URL` are configured. Tokens are validated using RS256/JWKS; the API resolves the external `(issuer, subject)` pair through `external_identities`, then verifies the internal user and active membership in the requested `tenant_id`. Unknown external identities are denied. Provisioning is an explicit operator action using `scripts/provision_oidc_identity.py`.
+
+Initial Review/Finding/Evidence endpoints:
+
+- `GET/POST /api/v1/tenants/{tenant_id}/projects/{project_id}/reviews`
+- `GET/PATCH /api/v1/tenants/{tenant_id}/projects/{project_id}/reviews/{review_id}`
+- `GET/POST /api/v1/tenants/{tenant_id}/projects/{project_id}/reviews/{review_id}/findings`
+- `PATCH /api/v1/tenants/{tenant_id}/projects/{project_id}/findings/{finding_id}`
+- `GET/POST /api/v1/tenants/{tenant_id}/projects/{project_id}/findings/{finding_id}/evidence`
+
+The database enforces tenant/project consistency with composite foreign keys. Source-fragment evidence must reference a fragment belonging to the same tenant and project. Status changes produce audit events. Project write permissions are checked separately from authentication.
