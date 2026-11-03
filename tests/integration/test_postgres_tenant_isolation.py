@@ -3,13 +3,19 @@ import os
 from io import BytesIO
 from uuid import uuid4
 
+import jwt
 import pytest
+from cryptography.hazmat.primitives.asymmetric import rsa
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import create_engine, select, text
 from sqlalchemy.exc import IntegrityError
 
+from app.api import auth
 from app.storage.database import build_session_factory, set_tenant_context
 from app.storage.file_store import LocalFileStore, StorageIntegrityError
-from app.storage.models import AuditEvent, DocumentVersion
+from app.storage.models import (
+    AuditEvent, DocumentVersion, ExternalIdentity, Membership, Tenant, User,
+)
 from app.storage.upload_service import DocumentUploadService, UploadAccessDenied, UploadConflict
 
 DATABASE_URL = os.getenv("APP_DATABASE_URL") or os.getenv("DATABASE_URL")
@@ -403,5 +409,68 @@ def test_document_read_service_isolates_projects_within_one_tenant(connection):
                 service.get(tenant_id, project_b, document_b, user_id)
             with pytest.raises(ResourceNotFoundError):
                 service.list(tenant_id, project_b, user_id)
+    finally:
+        factory.kw["bind"].dispose()
+
+
+
+def test_keycloak_principal_sets_rls_context_before_membership_lookup(monkeypatch):
+    """A valid identity must resolve through the restricted app role with RLS enabled."""
+    tenant_id, user_id = uuid4(), uuid4()
+    issuer = "https://sso.integration.test/realms/pea"
+    subject = f"subject-{uuid4()}"
+    factory = build_session_factory(DATABASE_URL)
+
+    with factory() as session, session.begin():
+        set_tenant_context(session, tenant_id)
+        session.add(Tenant(id=tenant_id, name="OIDC integration tenant", status="active"))
+        session.add(User(id=user_id, login=f"oidc-{user_id}@test.local", status="active"))
+        session.flush()
+        session.add(
+            Membership(
+                id=uuid4(), tenant_id=tenant_id, user_id=user_id,
+                role="member", status="active",
+            )
+        )
+        session.add(
+            ExternalIdentity(
+                id=uuid4(), issuer=issuer, subject=subject,
+                user_id=user_id, status="active",
+            )
+        )
+
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    now = datetime.now(UTC)
+    token = jwt.encode(
+        {
+            "iss": issuer,
+            "aud": "pea-api",
+            "sub": subject,
+            "tenant_id": str(tenant_id),
+            "iat": now,
+            "exp": now + timedelta(minutes=5),
+        },
+        private_key,
+        algorithm="RS256",
+    )
+
+    class SigningKey:
+        key = private_key.public_key()
+
+    class JwksClient:
+        def get_signing_key_from_jwt(self, _token):
+            return SigningKey()
+
+    monkeypatch.setenv("OIDC_ISSUER", issuer)
+    monkeypatch.setenv("OIDC_AUDIENCE", "pea-api")
+    monkeypatch.setenv("OIDC_JWKS_URL", "https://sso.integration.test/realms/pea/certs")
+    monkeypatch.setattr(auth, "_jwks_client", lambda _url: JwksClient())
+
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+    try:
+        with factory() as session, session.begin():
+            principal = auth.get_current_principal(credentials, session)
+            assert principal.user_id == user_id
+            assert principal.tenant_id == tenant_id
     finally:
         factory.kw["bind"].dispose()
