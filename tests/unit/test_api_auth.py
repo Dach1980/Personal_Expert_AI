@@ -41,6 +41,7 @@ def _configure_oidc(monkeypatch, private_key):
             return SigningKey()
 
     monkeypatch.setattr(auth, "_jwks_client", lambda _url: JwksClient())
+    monkeypatch.setattr(auth, "set_tenant_context", Mock())
 
 
 def test_principal_is_derived_from_verified_keycloak_identity(monkeypatch):
@@ -51,6 +52,7 @@ def test_principal_is_derived_from_verified_keycloak_identity(monkeypatch):
     session.scalar.side_effect = [
         SimpleNamespace(user_id=user_id),
         SimpleNamespace(id=user_id, status="active"),
+        SimpleNamespace(id=tenant_id, status="active"),
         SimpleNamespace(status="active"),
     ]
 
@@ -64,7 +66,8 @@ def test_principal_is_derived_from_verified_keycloak_identity(monkeypatch):
 
     assert principal.user_id == user_id
     assert principal.tenant_id == tenant_id
-    assert session.scalar.call_count == 3
+    assert session.scalar.call_count == 4
+    auth.set_tenant_context.assert_called_once_with(session, tenant_id)
 
 
 def test_invalid_jwt_is_rejected(monkeypatch):
