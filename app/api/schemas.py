@@ -172,3 +172,12 @@ class EvidenceRead(BaseModel):
     reference_uri: str | None
     created_by: UUID
     created_at: datetime
+
+
+class ReviewStatusUpdate(BaseModel):
+    status: str = Field(pattern="^(draft|in_progress|completed|approved|rejected|cancelled)$")
+    summary: str | None = None
+
+
+class FindingStatusUpdate(BaseModel):
+    status: str = Field(pattern="^(open|accepted|rejected|resolved|waived)$")
