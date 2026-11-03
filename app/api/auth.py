@@ -105,7 +105,7 @@ def get_current_principal(
     tenant = session.scalar(
         select(Tenant).where(Tenant.id == tenant_id, Tenant.status == "active")
     )
-    if tenant is None:
+    if tenant is None or tenant.status != "active":
         raise _unauthorized("Tenant is inactive or unknown")
 
     membership = session.scalar(
