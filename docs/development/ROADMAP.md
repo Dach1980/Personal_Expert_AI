@@ -94,6 +94,7 @@
 - [x] OCR benchmark runner и синтетический Tesseract smoke test; CER/WER, box metrics, latency и RSS snapshots при наличии psutil.
 - [ ] Измерить OCR accuracy на реальном русскоязычном инженерном наборе с Ground Truth; synthetic smoke test не считается таким измерением.
 - [x] Исправить базовую OCR-дедупликацию: совпадение токена проверяется по пересечению локальных native/OCR word boxes, а не по наличию слова где-либо на странице.
+- [x] Учитывать поворот PDF при переводе OCR pixel boxes в unrotated PDF points; система координат явно записывается в structured page.
 - [ ] Проверить качество spatial dedup на размеченных реальных страницах, поворотах, масштабах и сложных шрифтах.
 - [ ] Сравнить OCR providers (Tesseract, PaddleOCR, EasyOCR) через изолированные adapters; выбрать production default по результатам benchmark.
 - [ ] Семантическое понимание схем и чертежей через локальную vision-language model после benchmark.
