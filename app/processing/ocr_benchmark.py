@@ -198,15 +198,16 @@ def run_benchmark(
 
                     process = psutil.Process()
                     rss_before = process.memory_info().rss
-                except ImportError:
-                    pass
+                except Exception:
+                    process = None
+                    rss_before = None
                 started = time.perf_counter()
                 result = engine.recognize(case.image_bytes, language=language, config=config)
                 elapsed_ms = (time.perf_counter() - started) * 1000
                 try:
                     if rss_before is not None:
                         rss_after = process.memory_info().rss
-                except (NameError, OSError):
+                except Exception:
                     rss_after = None
                 recognized = str(result.get("text", ""))
                 row = {
