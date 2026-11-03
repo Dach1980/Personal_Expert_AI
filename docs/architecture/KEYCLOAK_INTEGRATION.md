@@ -94,3 +94,40 @@ The Bionic server-side API Adapter now exposes a fixed set of GET routes under `
 - Bionic now verifies Keycloak RS256/JWKS tokens and has fixed server-side GET adapter routes for projects, documents, versions, source fragments, artifacts and knowledge.
 - Local Keycloak realm/client provisioning, trusted OIDC gateway wiring, external identity provisioning, UI wiring and full end-to-end tests remain outstanding.
 - The fork CI no longer attempts to publish Docker images to the upstream GHCR package. Rust verification for the new authentication/adapter commits is still running; only completed successful workflow runs will be considered proof of compilation.
+
+
+## Using the Keycloak instance already provisioned for Bionic
+
+Do not deploy a second Keycloak instance. The Bionic Stack manifest already enables the Stack OIDC component. Stack installs/uses a shared Keycloak control plane and creates a realm for each StackApp; its OIDC component places oauth2-proxy in front of the app. The Bionic realm is `bionic-gpt` (also reflected in its configured logout URL).
+
+For a local development cluster:
+
+1. Ensure the shared Keycloak control plane is installed once with `stack init --install-keycloak`.
+2. Deploy Bionic using its `dev` profile, which enables the OIDC component.
+3. Obtain the temporary Keycloak admin credentials with `stack status --manifest infra-as-code/stack.yaml`. Do not paste these credentials into GitHub or chat.
+4. Open the Keycloak admin console by forwarding the service: `kubectl -n keycloak port-forward svc/keycloak-service 8080:8080`.
+5. Use the Bionic realm `bionic-gpt`; do not create a separate PEA realm.
+
+### Required Keycloak token claims
+
+In the Bionic realm, configure the Bionic OIDC client (the client used by Stack's oauth2-proxy) so that its access token has:
+
+- `aud` containing `pea-api`. Create a Keycloak client with ID `pea-api` as the API audience, then add an Audience protocol mapper to the Bionic OIDC client's dedicated scope. Set Included Client Audience to `pea-api`, Add to access token = On, Add to ID token = Off.
+- `tenant_id` containing the UUID of the selected PEA tenant. Add a User Attribute protocol mapper: User Attribute = `tenant_id`, Token Claim Name = `tenant_id`, JSON Type = String, Add to access token = On, Add to ID token = Off.
+
+Set the `tenant_id` user attribute on each Keycloak user to the PEA tenant UUID. This is only a tenant selector, not an authorization grant: PEA still checks the user's active membership and project access. The current first integration uses one active tenant per token; a tenant-switching flow will be needed before one identity can operate in multiple tenants without reauthentication.
+
+Before configuring `OIDC_ISSUER`, inspect the realm's OpenID discovery document at `{issuer}/.well-known/openid-configuration` and copy its exact `issuer` value. Do not infer or hand-edit the issuer URL. For a local PEA process on the host, forward Keycloak to port 8080 and set `OIDC_JWKS_URL` to the realm's `protocol/openid-connect/certs` endpoint through that forwarded port. The public issuer and the private JWKS retrieval URL may differ, but the token's `iss` must match `OIDC_ISSUER` exactly.
+
+### Explicitly bind a Keycloak user to an existing PEA user
+
+After the Keycloak user has logged in once, obtain the immutable `sub` value from the access token (or the Keycloak user's internal ID, if it is confirmed to be the same subject). Then run this from the PEA repository with `DATABASE_URL` configured:
+
+```bash
+python scripts/provision_oidc_identity.py \
+  --issuer "EXACT_ISSUER_FROM_TOKEN" \
+  --subject "KEYCLOAK_SUBJECT" \
+  --login "EXISTING_PEA_USER_LOGIN"
+```
+
+This command only binds an already-existing active PEA user. It never creates a user, tenant, membership, project grant or owner role. Those must exist independently before the user can access project data.
