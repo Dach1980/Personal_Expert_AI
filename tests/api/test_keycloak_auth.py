@@ -29,6 +29,7 @@ def signing_keys(monkeypatch):
             return Key()
 
     monkeypatch.setattr(auth, "_jwks_client", lambda _url: Client())
+    monkeypatch.setattr(auth, "set_tenant_context", lambda _session, _tenant_id: None)
     return private_key
 
 
@@ -128,5 +129,32 @@ def test_principal_rejects_malformed_tenant_claim(signing_keys):
 
     with pytest.raises(HTTPException) as error:
         auth.get_current_principal(credentials=credentials, session=SessionNone())
+
+    assert error.value.status_code == 401
+
+
+def test_principal_rejects_inactive_tenant(signing_keys):
+    tenant_id = uuid4()
+    user_id = uuid4()
+    token = make_token(signing_keys, tenant_id=str(tenant_id))
+
+    class Session:
+        def __init__(self, rows):
+            self.rows = iter(rows)
+
+        def scalar(self, _statement):
+            return next(self.rows)
+
+    identity = SimpleNamespace(user_id=user_id)
+    user = SimpleNamespace(id=user_id)
+    tenant = SimpleNamespace(id=tenant_id, status="disabled")
+    membership = SimpleNamespace(status="active")
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+
+    with pytest.raises(HTTPException) as error:
+        auth.get_current_principal(
+            credentials=credentials,
+            session=Session([identity, user, tenant, membership]),
+        )
 
     assert error.value.status_code == 401
