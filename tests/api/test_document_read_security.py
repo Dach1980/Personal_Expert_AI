@@ -1,10 +1,10 @@
 from uuid import uuid4
 
-import pytest
 from fastapi import HTTPException
+import pytest
 
-from app.api.routes import _check_tenant, _public_locator
 from app.api.auth import Principal
+from app.api.routes import _check_tenant, _public_locator
 
 
 def test_public_locator_removes_storage_internals_recursively():
