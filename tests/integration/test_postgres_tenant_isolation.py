@@ -349,3 +349,59 @@ def test_viewer_cannot_upload_documents(connection, tmp_path):
             )
     finally:
         factory.kw["bind"].dispose()
+
+
+def test_document_read_service_isolates_projects_within_one_tenant(connection):
+    from app.storage.services import DocumentService, ResourceNotFoundError
+
+    tenant_id, user_id = uuid4(), uuid4()
+    project_a, project_b = uuid4(), uuid4()
+    document_a, document_b = uuid4(), uuid4()
+    with connection.begin():
+        _tenant(connection, tenant_id)
+        connection.execute(
+            text("INSERT INTO users (id, login, status) VALUES (:id, :login, 'active')"),
+            {"id": user_id, "login": f"reader-{user_id}@test.local"},
+        )
+        connection.execute(
+            text("""INSERT INTO memberships (id, tenant_id, user_id, role, status)
+                    VALUES (:id, :tenant, :user, 'member', 'active')"""),
+            {"id": uuid4(), "tenant": tenant_id, "user": user_id},
+        )
+        connection.execute(
+            text("""INSERT INTO projects (id, tenant_id, name, status, metadata)
+                    VALUES (:a, :tenant, 'Readable project', 'active', '{}'::jsonb),
+                           (:b, :tenant, 'Private project', 'active', '{}'::jsonb)"""),
+            {"a": project_a, "b": project_b, "tenant": tenant_id},
+        )
+        connection.execute(
+            text("""INSERT INTO project_memberships
+                    (id, tenant_id, project_id, user_id, role, status)
+                    VALUES (:id, :tenant, :project, :user, 'engineer', 'active')"""),
+            {"id": uuid4(), "tenant": tenant_id, "project": project_a, "user": user_id},
+        )
+        connection.execute(
+            text("""INSERT INTO documents
+                    (id, tenant_id, project_id, title, status)
+                    VALUES (:a, :tenant, :project_a, 'Visible source', 'active'),
+                           (:b, :tenant, :project_b, 'Hidden source', 'active')"""),
+            {
+                "a": document_a, "b": document_b, "tenant": tenant_id,
+                "project_a": project_a, "project_b": project_b,
+            },
+        )
+
+    factory = build_session_factory(DATABASE_URL)
+    try:
+        with factory() as session, session.begin():
+            service = DocumentService(session)
+            assert service.get(
+                tenant_id, project_a, document_a, user_id
+            ).id == document_a
+            assert service.list(tenant_id, project_a, user_id)[0].id == document_a
+            with pytest.raises(ResourceNotFoundError):
+                service.get(tenant_id, project_b, document_b, user_id)
+            with pytest.raises(ResourceNotFoundError):
+                service.list(tenant_id, project_b, user_id)
+    finally:
+        factory.kw["bind"].dispose()
