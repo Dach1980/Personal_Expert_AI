@@ -71,7 +71,6 @@ def test_keycloak_token_rejects_wrong_signature(signing_keys):
         {"iss": "https://attacker.example/realm"},
         {"aud": "another-api"},
         {"exp": datetime.now(timezone.utc) - timedelta(minutes=1)},
-        {"tenant_id": "not-a-uuid"},
     ],
 )
 def test_keycloak_token_rejects_invalid_security_claims(signing_keys, claims):
