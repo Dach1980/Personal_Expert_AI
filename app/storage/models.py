@@ -415,3 +415,22 @@ class UploadOperation(Base, TimestampMixin):
     error_code: Mapped[str | None] = mapped_column(String(100))
     error_message: Mapped[str | None] = mapped_column(Text)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ExternalIdentity(Base, TimestampMixin):
+    """Explicit mapping from a trusted OIDC identity to an internal PEA user."""
+
+    __tablename__ = "external_identities"
+    __table_args__ = (
+        UniqueConstraint("issuer", "subject", name="uq_external_identities_issuer_subject"),
+        Index("ix_external_identities_user_status", "user_id", "status"),
+        CheckConstraint("status IN ('active','disabled')", name="ck_external_identities_status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    issuer: Mapped[str] = mapped_column(String(500), nullable=False)
+    subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
