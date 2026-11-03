@@ -23,9 +23,11 @@ llm = ["openai>=1.40"]
 database = ["sqlalchemy>=2.0", "psycopg[binary]>=3.2", "alembic>=1.13"]
 processing = ["PyMuPDF>=1.24", "python-docx>=1.1", "openpyxl>=3.1", "python-pptx>=1.0"]
 ocr = ["pytesseract>=0.3.13", "Pillow>=10.0"]
+benchmark = ["psutil>=6.0"]
 
 [project.scripts]
 personal-expert-ai-worker = "app.processing.worker:main"
+personal-expert-ai-ocr-benchmark = "app.processing.ocr_benchmark:main"
 
 [tool.setuptools.packages.find]
 include = ["app*"]
