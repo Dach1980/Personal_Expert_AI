@@ -84,3 +84,20 @@ class LLMProvider(Protocol):
         inputs: list[str],
         options: dict[str, Any] | None = None,
     ) -> EmbeddingResult: ...
+
+    def vision_analysis(
+        self,
+        *,
+        model: str,
+        messages: list[dict[str, Any]],
+        options: dict[str, Any] | None = None,
+    ) -> ChatResult: ...
+
+    def generate_structured(
+        self,
+        *,
+        model: str,
+        messages: list[dict[str, Any]],
+        schema: dict[str, Any],
+        options: dict[str, Any] | None = None,
+    ) -> ChatResult: ...
