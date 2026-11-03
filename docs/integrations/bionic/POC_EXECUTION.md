@@ -38,6 +38,24 @@ Personal Expert AI уже имеет локальные adapters: PDF pages/nati
 Критерий: выводы grounded; недостаток доказательств даёт unknown; cross-project access отклоняется backend; prompt injection не расширяет полномочия.
 Статус: текст Skill подготовлен; исполнение в Bionic runtime не выполнено.
 
+## Проверенный API surface Personal Expert AI
+
+По текущим исходникам main подтверждены маршруты:
+- GET /api/v1/tenants/{tenant_id}/projects
+- GET /api/v1/tenants/{tenant_id}/projects/{project_id}/documents
+- POST /api/v1/tenants/{tenant_id}/projects/{project_id}/documents
+- POST /api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions
+- GET /api/v1/tenants/{tenant_id}/projects/{project_id}/documents/{document_id}/versions/{version_id}/content
+- POST и GET processing-runs для конкретной document version.
+
+Обнаруженные пробелы для полноценного grounded agent:
+- нет подтверждённого GET списка/метаданных версий документа;
+- нет read API для SourceFragment и provenance locators;
+- нет API поиска/retrieval по фрагментам;
+- нет API для создания/чтения результатов инженерной проверки и review evidence.
+
+Следовательно, Bionic пока нельзя подключить как полноценного агента для ответов с доказательствами только на существующих API. Первый adapter может быть read-only для списка проектов/документов и статусов ProcessingRun. Следующий backend этап — добавить tenant/project-scoped read endpoints для immutable versions, SourceFragments и retrieval, затем contract tests и только потом зарегистрировать их как Bionic tools.
+
 ## D — интеграция с backend
 Поток: customized Bionic UI → Bionic agent harness → Personal Expert API adapter → FastAPI auth/authz → Repository/Service Layer → PostgreSQL RLS + local storage/worker.
 Bionic вызывает API только через adapter/tool gateway. Backend не доверяет tenant_id/project_id из tool arguments; scope извлекается из authenticated principal.
