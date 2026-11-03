@@ -240,12 +240,34 @@ def run_benchmark(
                     "error": str(exc)[:1000],
                 }
             rows.append(row)
+    summaries: list[dict[str, Any]] = []
+    for engine in engines:
+        engine_rows = [row for row in rows if row["engine"] == engine.name]
+        successful = [row for row in engine_rows if row["status"] == "ok"]
+        summaries.append({
+            "engine": engine.name,
+            "successful_cases": len(successful),
+            "failed_cases": len(engine_rows) - len(successful),
+            "mean_cer": (
+                sum(float(row["cer"]) for row in successful) / len(successful)
+                if successful else None
+            ),
+            "mean_wer": (
+                sum(float(row["wer"]) for row in successful) / len(successful)
+                if successful else None
+            ),
+            "mean_latency_ms": (
+                sum(float(row["latency_ms"]) for row in successful) / len(successful)
+                if successful else None
+            ),
+        })
     return {
         "schema_version": 1,
         "language": language,
         "config": config,
         "case_count": len(cases),
         "engine_count": len(engines),
+        "summary": summaries,
         "results": rows,
         "notes": [
             "CER/WER are calculated against normalized human-verified ground truth.",
