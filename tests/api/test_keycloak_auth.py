@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -33,7 +33,7 @@ def signing_keys(monkeypatch):
 
 
 def make_token(private_key, **overrides):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     claims = {
         "iss": "https://sso.example.test/realms/pea",
         "aud": "pea-api",
