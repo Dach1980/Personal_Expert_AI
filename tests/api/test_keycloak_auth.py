@@ -70,7 +70,7 @@ def test_keycloak_token_rejects_wrong_signature(signing_keys):
     [
         {"iss": "https://attacker.example/realm"},
         {"aud": "another-api"},
-        {"exp": datetime.now(timezone.utc) - timedelta(minutes=1)},
+        {"exp": datetime.now(UTC) - timedelta(minutes=1)},
     ],
 )
 def test_keycloak_token_rejects_invalid_security_claims(signing_keys, claims):
