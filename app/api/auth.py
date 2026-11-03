@@ -11,7 +11,7 @@ from jwt import PyJWKClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.storage.database import get_session
+from app.storage.database import get_session, set_tenant_context
 from app.storage.models import ExternalIdentity, Membership, Tenant, User
 
 bearer = HTTPBearer(auto_error=False)
@@ -99,6 +99,9 @@ def get_current_principal(
     if user is None:
         raise _unauthorized("Inactive or unknown user")
 
+    # The tenant id comes from the verified token. Set transaction-local RLS
+    # context before reading tenants or memberships, both of which are RLS-protected.
+    set_tenant_context(session, tenant_id)
     tenant = session.scalar(
         select(Tenant).where(Tenant.id == tenant_id, Tenant.status == "active")
     )
