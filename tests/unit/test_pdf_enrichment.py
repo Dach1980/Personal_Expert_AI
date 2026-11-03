@@ -138,5 +138,5 @@ def test_rendered_ocr_coordinates_are_derotated_to_native_pdf_space():
     recovered = pdf_enrichment._pixel_bbox_to_pdf_points(
         bbox_px, page=page, pixmap=pixmap
     )
-    assert all(abs(actual - expected) < 1.0 for actual, expected in zip(recovered, native_bbox))
+    assert all(abs(actual - expected) < 1.0 for actual, expected in zip(recovered, native_bbox, strict=True))
     document.close()
