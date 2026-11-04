@@ -18,6 +18,7 @@ class ProjectRead(BaseModel):
     tenant_id: UUID
     name: str
     code: str | None
+    description: str | None
     status: str
 
 
@@ -34,6 +35,13 @@ class DocumentRead(BaseModel):
     title: str
     document_type: str | None
     status: str
+
+
+class SessionRead(BaseModel):
+    authenticated: bool = True
+    user_id: UUID = Field(alias="userId")
+    display_name: str | None = Field(alias="displayName")
+    tenant_id: UUID = Field(alias="tenantId")
 
 
 class TenantRead(BaseModel):
