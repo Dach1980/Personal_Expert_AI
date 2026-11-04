@@ -278,3 +278,21 @@ Initial Review/Finding/Evidence endpoints:
 - `GET/POST /api/v1/tenants/{tenant_id}/projects/{project_id}/findings/{finding_id}/evidence`
 
 The database enforces tenant/project consistency with composite foreign keys. Source-fragment evidence must reference a fragment belonging to the same tenant and project. Status changes produce audit events. Project write permissions are checked separately from authentication.
+
+## Conversation and document workspace endpoints (2026-11-04)
+
+All routes below require a validated Keycloak Bearer token. PEA checks active user, tenant membership and project access independently of the Bionic adapter.
+
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `/api/v1/tenants/{tenant_id}/projects/{project_id}/conversations` | List active conversations |
+| POST | Same route | Create a conversation |
+| GET | `.../conversations/{conversation_id}/messages` | Read ordered message history |
+| POST | Same route | Persist user prompt and stream local-model deltas as SSE |
+| POST | `.../documents/{document_id}/versions/{version_id}/processing-runs` | Enqueue document ingestion |
+| GET | Same route | Read processing status and errors |
+
+Conversation rows and messages are tenant/project scoped with PostgreSQL RLS and composite foreign keys. The message endpoint uses the local LM Studio provider only. Model selection reads `PEA_LLM_MODEL` first and falls back to `LM_STUDIO_MODEL`; missing model configuration returns 503. The backend uses `LM_STUDIO_BASE_URL` and `LM_STUDIO_API_KEY`. The provider enforces loopback endpoints; cloud fallback is disabled.
+
+The current assistant system prompt explicitly discloses that retrieval is not yet attached. It must not claim to have checked project documents until retrieval/evidence context is integrated.
+
