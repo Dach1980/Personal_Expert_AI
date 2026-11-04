@@ -445,6 +445,10 @@ class Review(Base, TimestampMixin):
             "status IN ('draft','in_progress','completed','approved','rejected','cancelled')",
             name="ck_reviews_status",
         ),
+        CheckConstraint(
+            "scope IN ('project','document_version')",
+            name="ck_reviews_scope",
+        ),
         UniqueConstraint("tenant_id", "project_id", "id", name="uq_reviews_parent"),
         Index("ix_reviews_project_status_created", "tenant_id", "project_id", "status", "created_at"),
         ForeignKeyConstraint(
