@@ -7,7 +7,14 @@ import os
 from collections import Counter
 
 import pytest
-from sqlalchemy import CheckConstraint, ForeignKeyConstraint, Index, UniqueConstraint, create_engine, inspect
+from sqlalchemy import (
+    CheckConstraint,
+    ForeignKeyConstraint,
+    Index,
+    UniqueConstraint,
+    create_engine,
+    inspect,
+)
 
 from app.storage.models import Base
 
