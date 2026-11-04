@@ -11,6 +11,7 @@ def test_initial_domain_tables_are_registered() -> None:
         "processing_runs", "processing_artifacts", "source_fragments",
         "knowledge_items", "knowledge_assertions", "conversations",
         "messages", "memory_entries", "audit_events", "upload_operations", "external_identities", "reviews", "findings", "evidence",
+        "chat_conversations", "chat_messages",
     }
     assert expected == set(Base.metadata.tables)
 
@@ -103,3 +104,19 @@ def test_finding_and_evidence_lifecycle_constraints_are_registered() -> None:
 
     assert {"ck_findings_classification", "ck_findings_severity", "ck_findings_status"} <= finding_checks
     assert {"ck_evidence_type", "ck_evidence_relation", "ck_evidence_source_fragment_required"} <= evidence_checks
+
+
+
+def test_chat_conversations_and_messages_are_tenant_project_scoped() -> None:
+    conversations = Base.metadata.tables["chat_conversations"]
+    messages = Base.metadata.tables["chat_messages"]
+    conversation_fks = {
+        item.name for item in conversations.constraints if isinstance(item, ForeignKeyConstraint)
+    }
+    message_fks = {
+        item.name for item in messages.constraints if isinstance(item, ForeignKeyConstraint)
+    }
+    assert "fk_chat_conversations_project_tenant" in conversation_fks
+    assert "fk_chat_conversations_creator_membership" in conversation_fks
+    assert "fk_chat_messages_conversation_parent" in message_fks
+    assert "fk_chat_messages_sender_membership" in message_fks
