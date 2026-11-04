@@ -73,6 +73,58 @@ def test_rls_hides_rows_from_other_tenants(connection):
         assert visible == [project_a]
 
 
+def test_chat_conversations_and_messages_enforce_tenant_and_project_scope(connection):
+    tenant_a, tenant_b = uuid4(), uuid4()
+    user_id, project_a, project_b, conversation_id = uuid4(), uuid4(), uuid4(), uuid4()
+    with connection.begin():
+        _tenant(connection, tenant_a)
+        connection.execute(
+            text("INSERT INTO users (id, login, status) VALUES (:id, :login, 'active')"),
+            {"id": user_id, "login": f"{user_id}@example.test"},
+        )
+        connection.execute(
+            text("""INSERT INTO memberships (id, tenant_id, user_id, role, status)
+                    VALUES (:id, :tenant, :user, 'member', 'active')"""),
+            {"id": uuid4(), "tenant": tenant_a, "user": user_id},
+        )
+        connection.execute(
+            text("""INSERT INTO projects (id, tenant_id, name, status, metadata)
+                    VALUES (:a, :tenant, 'Chat A', 'active', '{}'::jsonb),
+                           (:b, :tenant, 'Chat B', 'active', '{}'::jsonb)"""),
+            {"a": project_a, "b": project_b, "tenant": tenant_a},
+        )
+        connection.execute(
+            text("""INSERT INTO chat_conversations
+                    (id, tenant_id, project_id, created_by, title, status)
+                    VALUES (:id, :tenant, :project, :user, 'Chat', 'active')"""),
+            {"id": conversation_id, "tenant": tenant_a, "project": project_a, "user": user_id},
+        )
+        connection.execute(
+            text("""INSERT INTO chat_messages
+                    (id, tenant_id, project_id, conversation_id, role, content, created_by)
+                    VALUES (:id, :tenant, :project, :conversation, 'user', 'Question', :user)"""),
+            {
+                "id": uuid4(), "tenant": tenant_a, "project": project_a,
+                "conversation": conversation_id, "user": user_id,
+            },
+        )
+        with pytest.raises(IntegrityError):
+            with connection.begin_nested():
+                connection.execute(
+                    text("""INSERT INTO chat_messages
+                            (id, tenant_id, project_id, conversation_id, role, content, created_by)
+                            VALUES (:id, :tenant, :project, :conversation, 'user', 'Cross project', :user)"""),
+                    {
+                        "id": uuid4(), "tenant": tenant_a, "project": project_b,
+                        "conversation": conversation_id, "user": user_id,
+                    },
+                )
+    with connection.begin():
+        _tenant(connection, tenant_b)
+        assert connection.execute(text("SELECT count(*) FROM chat_conversations")).scalar_one() == 0
+        assert connection.execute(text("SELECT count(*) FROM chat_messages")).scalar_one() == 0
+
+
 def test_composite_fk_rejects_cross_tenant_document(connection):
     tenant_a, tenant_b, project_a = uuid4(), uuid4(), uuid4()
     with connection.begin():
