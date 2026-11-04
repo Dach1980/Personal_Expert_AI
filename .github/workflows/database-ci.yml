@@ -41,6 +41,10 @@ jobs:
           sudo apt-get install -y tesseract-ocr tesseract-ocr-eng fonts-dejavu-core
       - name: Install
         run: pip install -e ".[database,dev,processing,ocr,benchmark,llm]"
+      - name: Validate Keycloak provisioning scripts
+        run: |
+          python -m py_compile scripts/configure_keycloak_realm.py scripts/provision_oidc_identity.py
+          ruff check scripts/configure_keycloak_realm.py scripts/provision_oidc_identity.py
       - name: Upgrade to head
         run: alembic upgrade head
       - name: Create restricted application role for RLS tests
