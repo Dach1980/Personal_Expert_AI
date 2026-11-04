@@ -17,8 +17,8 @@ from app.storage.file_store import LocalFileStore, StorageIntegrityError
 from app.storage.models import (
     AuditEvent,
     DocumentVersion,
-    ExternalIdentity,
     Evidence,
+    ExternalIdentity,
     Finding,
     Membership,
     Project,
