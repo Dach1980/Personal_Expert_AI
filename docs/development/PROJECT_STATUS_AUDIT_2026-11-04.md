@@ -111,12 +111,13 @@
 
 - [x] Зафиксировано имя публичного репозитория: `Personal_Expert_AI_Web`.
 - [x] Зафиксирован публичный URL GitHub Pages.
-- [ ] Проверить доступность репозитория и настроить GitHub Pages.
-- [ ] Создать frontend application shell и базовую дизайн-систему Personal Expert AI.
-- [ ] Подключить утверждённый логотип и branding.
-- [ ] Реализовать публичную стартовую страницу и приложение (SPA).
-- [ ] Настроить GitHub Actions build/deploy для Pages.
-- [ ] Реализовать client-side routing и корректный base path `/Personal_Expert_AI_Web/`.
+- [x] Публичный репозиторий существует, default branch — `main`.
+- [x] Есть React + TypeScript + Vite SPA scaffold, Sidebar, ProjectList, ChatPanel и адаптивное рабочее пространство.
+- [x] Есть Vite base path `/Personal_Expert_AI_Web/`.
+- [x] Есть GitHub Actions workflow; Pages deployment run #51 от 2026-11-03 завершился `success`.
+- [x] Есть изолированный API client для будущего API Adapter.
+- [ ] Проверить текущую доступность сайта и прямые SPA routes/refresh в браузере.
+- [ ] Завершить финальную интеграцию logo/favicon и branding.
 - [ ] Создать независимый API client/adapter, не привязанный к внутренним URL или структурам Bionic.
 - [ ] Реализовать login/session UX с учётом Keycloak/OIDC и ограничений static hosting.
 - [ ] Подключить frontend к защищённому backend API через HTTPS gateway; настроить точный CORS allowlist.
