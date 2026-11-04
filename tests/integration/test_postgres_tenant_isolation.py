@@ -28,8 +28,9 @@ from app.storage.models import (
 )
 from app.storage.upload_service import DocumentUploadService, UploadAccessDenied, UploadConflict
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+OWNER_DATABASE_URL = os.getenv("DATABASE_URL")
 APP_DATABASE_URL = os.getenv("APP_DATABASE_URL")
+DATABASE_URL = APP_DATABASE_URL or OWNER_DATABASE_URL
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="PostgreSQL DATABASE_URL is required")
 
 
@@ -430,7 +431,7 @@ def test_keycloak_principal_sets_rls_context_before_membership_lookup(monkeypatc
     tenant_id, user_id = uuid4(), uuid4()
     issuer = "https://sso.integration.test/realms/pea"
     subject = f"subject-{uuid4()}"
-    factory = build_session_factory(DATABASE_URL)
+    factory = build_session_factory(OWNER_DATABASE_URL or DATABASE_URL)
 
     with factory() as session, session.begin():
         set_tenant_context(session, tenant_id)
@@ -497,8 +498,8 @@ def test_review_finding_evidence_tables_enforce_tenant_rls():
 
     tenant_id, user_id, project_id = uuid4(), uuid4(), uuid4()
     review_id, finding_id, evidence_id = uuid4(), uuid4(), uuid4()
-    owner_factory = build_session_factory(DATABASE_URL)
-    app_factory = build_session_factory(APP_DATABASE_URL)
+    owner_factory = build_session_factory(OWNER_DATABASE_URL or DATABASE_URL)
+    app_factory = build_session_factory(APP_DATABASE_URL or DATABASE_URL)
     try:
         with owner_factory() as session, session.begin():
             set_tenant_context(session, tenant_id)
