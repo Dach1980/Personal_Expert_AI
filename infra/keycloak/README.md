@@ -98,3 +98,18 @@ Bionic must remain behind the trusted Stack OIDC gateway. The gateway must strip
 5. Confirm PEA rejects an unprovisioned subject, disabled identity, inactive user, inactive tenant, missing membership and cross-tenant/project access.
 
 The PEA API independently verifies the RS256 signature using the configured JWKS, validates issuer/audience/time claims and checks tenant/project memberships on every request.
+
+
+## Public Pages client
+
+The same realm also provisions a separate public browser client `pea-web` for the static GitHub Pages SPA. It uses Authorization Code + PKCE S256, has no client secret and has no password/direct-access grant. The setup script attaches `pea-api-context` to this client so the access token carries the `pea-api` audience and the configured `tenant_id` claim.
+
+Before running `python scripts/configure_keycloak_realm.py`, set:
+
+- `PEA_WEB_REDIRECT_URIS`: exact callback URL(s), default `https://dach1980.github.io/Personal_Expert_AI_Web/`.
+- `PEA_WEB_ORIGINS`: exact origin(s), default `https://dach1980.github.io`.
+
+The Bionic server must use `PEA_WEB_ORIGIN` with the same exact origin for CORS. The Pages build needs `VITE_OIDC_ISSUER`, `VITE_OIDC_CLIENT_ID=pea-web`, `VITE_OIDC_REDIRECT_URI` and `VITE_API_BASE_URL` pointing to Bionic. These are public configuration values, not secrets.
+
+Provision each person explicitly in PEA with `scripts/provision_oidc_identity.py` and create the corresponding active tenant/project memberships. The Keycloak `tenant_id` attribute is a routing context claim only; it does not grant PEA access by itself. Never automatically attach a first-time user to a tenant based only on email or an untrusted browser parameter.
+
