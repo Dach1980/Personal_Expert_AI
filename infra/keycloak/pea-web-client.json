@@ -1,0 +1,20 @@
+{
+  "clientId": "pea-web",
+  "name": "Personal Expert AI Web",
+  "description": "Public browser client for the Personal Expert AI SPA. Authorization Code Flow with PKCE S256.",
+  "enabled": true,
+  "protocol": "openid-connect",
+  "publicClient": true,
+  "standardFlowEnabled": true,
+  "implicitFlowEnabled": false,
+  "directAccessGrantsEnabled": false,
+  "serviceAccountsEnabled": false,
+  "frontchannelLogout": true,
+  "redirectUris": [],
+  "webOrigins": [],
+  "attributes": {
+    "pkce.code.challenge.method": "S256",
+    "post.logout.redirect.uris": "+"
+  },
+  "defaultClientScopes": ["web-origins", "profile", "email", "roles"]
+}
