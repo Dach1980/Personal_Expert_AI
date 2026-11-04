@@ -25,6 +25,7 @@ from app.api.schemas import (
     ReviewCreate,
     ReviewRead,
     ReviewStatusUpdate,
+    SessionRead,
     SourceFragmentRead,
     TenantRead,
 )
@@ -41,6 +42,7 @@ from app.storage.models import (
     ProcessingRun,
     Review,
     SourceFragment,
+    User,
 )
 from app.storage.services import (
     AccessDeniedError,
@@ -58,6 +60,34 @@ from app.storage.upload_service import (
 )
 
 router = APIRouter(prefix="/api/v1", tags=["workspace"])
+
+
+@router.get("/session", response_model=SessionRead)
+def get_session_info(
+    principal: Principal = Depends(get_current_principal),
+    session: Session = Depends(get_session),
+):
+    """Expose the already-verified principal to a trusted browser API gateway."""
+    user = session.scalar(select(User).where(User.id == principal.user_id, User.status == "active"))
+    if user is None:
+        raise HTTPException(status_code=401, detail="User is inactive or unknown")
+    return SessionRead(
+        userId=principal.user_id,
+        displayName=user.display_name or user.login,
+        tenantId=principal.tenant_id,
+    )
+
+
+@router.get("/projects", response_model=list[ProjectRead])
+def list_current_user_projects(
+    principal: Principal = Depends(get_current_principal),
+    session: Session = Depends(get_session),
+):
+    """List only projects visible to the authenticated principal in the active tenant."""
+    try:
+        return ProjectService(session).list(principal.tenant_id, principal.user_id)
+    except ResourceNotFoundError:
+        raise HTTPException(status_code=404, detail="Tenant not found") from None
 
 
 @router.get("/tenants/{tenant_id}", response_model=TenantRead)
