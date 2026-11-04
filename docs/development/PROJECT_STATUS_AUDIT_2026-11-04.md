@@ -242,3 +242,10 @@ Commit combined status checks для актуальных HEAD не вернул
 The eight-step execution checklist has been evaluated against current GitHub Actions and repository source. Steps 1 (CI confirmation) and 2 (Bionic Rust tests/build) are complete. Steps 3–7 require a live local Stack/Keycloak/PEA/LM Studio runtime and remain unaccepted. Step 8 (PEA document retrieval in Agent Runtime) requires implementation of a scoped search API/tool and grounded-answer tests; it is not an environment-only task.
 
 Detailed evidence, run URLs, exact tested SHAs, current limitations and the next UAT procedure are recorded in [REPOSITORY_RECONCILIATION_2026-11-04.md](REPOSITORY_RECONCILIATION_2026-11-04.md), section 10.
+
+
+### Deployment provenance gate added
+
+A further review of Bionic `infra-as-code/stack.yaml` and `docker-compose.yml` found that both currently reference the upstream image `ghcr.io/bionic-gpt/bionicgpt:1.13.4`, not an image built from the Personal Expert AI fork. The Rust CI validates source code but does not build/publish the fork container image or validate `infra-as-code/**`.
+
+Therefore, before runtime authorization tests, the fork-specific image must be built/deployed and its immutable digest verified. The detailed finding and required remediation are in section 10.5–10.6 of [REPOSITORY_RECONCILIATION_2026-11-04.md](REPOSITORY_RECONCILIATION_2026-11-04.md). No registry/tag was invented and no deployment manifest was changed without choosing the image delivery method.
