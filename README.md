@@ -64,6 +64,19 @@ Run tenant-scoped recovery/integrity checks after an interrupted process or as a
 
 The command resumes interrupted uploads, verifies registered originals, removes completed quarantine copies and reports orphan files. See [Document Upload and Recovery](docs/architecture/DOCUMENT_UPLOAD_AND_RECOVERY.md) for API examples and failure semantics.
 
+
+### Local conversation API
+
+Project conversations and messages are persisted under tenant/project RLS. The chat API streams deltas from the configured LM Studio model; it never falls back to a cloud provider. Install the optional OpenAI-compatible LM Studio SDK extra on the PEA API host:
+
+    pip install -e ".[database,processing,llm]"
+
+Set `LM_STUDIO_BASE_URL=http://127.0.0.1:1234/v1`, `LM_STUDIO_API_KEY=lm-studio` and `LM_STUDIO_MODEL` to the exact model identifier shown by LM Studio. The API also accepts `PEA_LLM_MODEL` as an explicit model override. If no model is configured, chat returns HTTP 503. The current conversation prompt does not yet include document retrieval; the UI states this explicitly and does not claim that documents have been checked.
+
+### Public web client
+
+The required user interface is maintained separately at [Personal_Expert_AI_Web](https://github.com/Dach1980/Personal_Expert_AI_Web) and deployed to [GitHub Pages](https://dach1980.github.io/Personal_Expert_AI_Web/). It uses the Bionic PEA Adapter as its only API origin. Configure Keycloak's public `pea-web` client with PKCE S256 by running `scripts/configure_keycloak_realm.py`; set `PEA_WEB_REDIRECT_URIS` and `PEA_WEB_ORIGINS` to exact deployment values first. Each user must still have an explicit PEA external identity and active membership provisioned. The frontend stores access tokens in memory only. See [Keycloak integration](docs/architecture/KEYCLOAK_INTEGRATION.md) and the [web API adapter contract](https://github.com/Dach1980/Personal_Expert_AI_Web/blob/main/docs/API_ADAPTER.md).
+
 ### Document extraction pipeline
 
 The first local extraction worker and format adapters are implemented for PDF (PyMuPDF), DOCX (python-docx), XLSX (openpyxl) and PPTX (python-pptx). Install them with:
