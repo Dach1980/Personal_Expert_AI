@@ -208,11 +208,13 @@
 
 **Решение от 2026-11-04:** рабочую публичную web-версию продукта разрабатывать в отдельном публичном репозитории [Dach1980/Personal_Expert_AI_Web](https://github.com/Dach1980/Personal_Expert_AI_Web) и публиковать через GitHub Pages: https://dach1980.github.io/Personal_Expert_AI_Web/. Это обязательный deliverable, а не только документация или запасной вариант.
 
-- [ ] Проверить репозиторий и настройки GitHub Pages.
-- [ ] Создать SPA и настроить base path `/Personal_Expert_AI_Web/`.
-- [ ] Настроить GitHub Actions build/deploy из `main`.
-- [ ] Реализовать branding, logo, favicon, навигацию и основные страницы.
-- [ ] Создать независимый API client/adapter с типизированными контрактами.
+- [x] Публичный репозиторий существует; React/TypeScript/Vite frontend shell уже создан.
+- [x] Настроен base path `/Personal_Expert_AI_Web/`.
+- [x] GitHub Actions Pages deployment workflow существует; run #51 (2026-11-03) завершился успешно.
+- [x] Есть базовые Sidebar, ProjectList, ChatPanel и API client.
+- [ ] Проверить актуальную доступность сайта и SPA routes в браузере.
+- [ ] Завершить branding, logo, favicon и навигацию.
+- [ ] Заменить demo data реальными данными через независимый API client/adapter.
 - [ ] Реализовать безопасный Keycloak/OIDC login/session flow.
 - [ ] Подключить HTTPS backend gateway и точный CORS allowlist.
 - [ ] Подключить проекты, документы, версии, статусы обработки, чат и evidence.
