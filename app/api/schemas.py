@@ -37,6 +37,35 @@ class DocumentRead(BaseModel):
     status: str
 
 
+class ConversationCreate(BaseModel):
+    title: str = Field(default="Новый диалог", min_length=1, max_length=300)
+
+
+class ConversationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    tenant_id: UUID
+    project_id: UUID
+    title: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ChatMessageCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=20000)
+
+
+class ChatMessageRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    conversation_id: UUID
+    role: str
+    content: str
+    model: str | None
+    created_at: datetime
+
+
 class SessionRead(BaseModel):
     authenticated: bool = True
     user_id: UUID = Field(alias="userId")
