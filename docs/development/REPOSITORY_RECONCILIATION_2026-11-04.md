@@ -183,3 +183,38 @@
 7. Отдельной разработкой добавить scoped PEA retrieval tool в Agent Runtime.
 
 **Текущий итог:** шаги 1 и 2 закрыты. Шаги 3–7 требуют локального runtime UAT. Шаг 8 требует разработки, а не только настройки окружения.
+
+
+### 10.5 Дополнительный deployment blocker, обнаруженный при проверке Stack manifest
+
+Проверка `bionic-personal-expert-ai/infra-as-code/stack.yaml` и `infra-as-code/docker-compose.yml` выявила существенное расхождение:
+
+- Stack manifest указывает `services.web.image: ghcr.io/bionic-gpt/bionicgpt:1.13.4`.
+- Docker Compose также указывает upstream image `ghcr.io/bionic-gpt/bionicgpt:1.13.4`.
+- CI `rust-check.yml` проверяет Rust source и web assets, но не собирает и не публикует fork-specific container image; workflow имеет path filters на Rust crates/Cargo/workflow и не проверяет изменения `infra-as-code/**`.
+
+Следствие: успешные Rust tests/build доказывают компилируемость форка, но сами по себе не доказывают, что локальный Stack запускает именно этот fork. Если развернуть Stack по текущему manifest без отдельного image override/build, вероятно будет запущен upstream Bionic image без PEA Adapter изменений.
+
+**Нельзя продолжать runtime-auth UAT, пока не будет однозначно подтверждено, что развернутый Bionic image собран из fork commit `d096698...` (или более нового проверенного commit).**
+
+Следующая инфраструктурная задача перед шагом 3:
+1. Выбрать контролируемый способ доставки fork image: локальная сборка/загрузка в локальный Kubernetes либо отдельный fork-owned GHCR package.
+2. Зафиксировать immutable image tag/digest, содержащий fork Adapter и JWT extractor.
+3. Обновить Stack manifest (и при необходимости Compose) на этот image; не указывать upstream image и не публиковать fork под upstream package.
+4. Добавить CI validation для `infra-as-code/stack.yaml` и Compose; по возможности build/publish workflow с fork-owned package.
+5. Проверить в запущенном pod/container image digest и наличие ожидаемых Adapter routes до начала login tests.
+
+Это не исправлялось автоматически: целевой registry/package и способ локального развёртывания ещё не согласованы. Нельзя подставлять выдуманный GHCR image или tag.
+
+### 10.6 Обновлённый порядок выполнения
+
+1. CI PEA/Web и Rust source gate Bionic — пройдены.
+2. **Fork-specific Bionic image build/deploy provenance — новый обязательный gate, открыт.**
+3. Trusted gateway и private Bionic → PEA network.
+4. Keycloak realm provisioning и browser PKCE login.
+5. User/tenant/project negative isolation tests; tenant switching остаётся отдельной функцией.
+6. Live conversation/SSE + LM Studio.
+7. Live document upload → immutable version → processing → SourceFragment/artifact.
+8. Implement PEA-scoped retrieval tool in Agent Runtime and grounded-answer tests.
+
+До закрытия пункта 2 нельзя считать последующие runtime gates проверенными.
