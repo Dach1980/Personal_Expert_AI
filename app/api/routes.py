@@ -35,6 +35,7 @@ from app.api.schemas import (
     SourceFragmentRead,
     TenantRead,
 )
+from app.llm.lm_studio import LMStudioConfig, LMStudioProvider
 from app.storage.config import storage_root
 from app.storage.database import get_session, get_session_factory, set_tenant_context
 from app.storage.file_store import LocalFileStore, StorageIntegrityError
@@ -52,7 +53,6 @@ from app.storage.models import (
     SourceFragment,
     User,
 )
-from app.llm.lm_studio import LMStudioConfig, LMStudioProvider
 from app.storage.services import (
     AccessDeniedError,
     DocumentService,
