@@ -1222,15 +1222,15 @@ def send_conversation_message(
     ]
 
     def event_stream():
-        yield "event: message_start\\ndata: {}\\n\\n"
+        yield "event: message_start\ndata: {}\n\n"
         answer_parts: list[str] = []
         try:
             for item in provider.stream_chat(model=model, messages=messages):
                 if item.event == "delta" and item.content:
                     answer_parts.append(item.content)
-                    yield "event: text_delta\\ndata: " + json.dumps(
+                    yield "event: text_delta\ndata: " + json.dumps(
                         {"delta": item.content}, ensure_ascii=False
-                    ) + "\\n\\n"
+                    ) + "\n\n"
             answer = "".join(answer_parts).strip()
             if answer:
                 with factory.begin() as write_session:
@@ -1254,13 +1254,13 @@ def send_conversation_message(
                         )
                         .values(updated_at=func.now())
                     )
-            yield "event: message_end\\ndata: {}\\n\\n"
+            yield "event: message_end\ndata: {}\n\n"
         except Exception:
             # Do not expose provider internals, local paths, or upstream details.
-            yield "event: error\\ndata: " + json.dumps(
+            yield "event: error\ndata: " + json.dumps(
                 {"message": "Локальная модель не смогла завершить ответ."},
                 ensure_ascii=False,
-            ) + "\\n\\n"
+            ) + "\n\n"
 
     return StreamingResponse(
         event_stream(),
