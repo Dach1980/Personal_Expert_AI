@@ -59,7 +59,6 @@ from app.storage.services import (
     ResourceNotFoundError,
     TenantService,
 )
-from app.llm.contracts import ProviderError
 from app.llm.lm_studio import LMStudioConfig, LMStudioProvider
 from app.storage.upload_service import (
     DocumentUploadService,
@@ -1256,7 +1255,7 @@ def send_conversation_message(
                         .values(updated_at=func.now())
                     )
             yield "event: message_end\\ndata: {}\\n\\n"
-        except (ProviderError, Exception) as exc:
+        except Exception:
             # Do not expose provider internals, local paths, or upstream details.
             yield "event: error\\ndata: " + json.dumps(
                 {"message": "Локальная модель не смогла завершить ответ."},
