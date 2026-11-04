@@ -52,6 +52,15 @@ Backend является единственным владельцем доме�
 - GET /api/v1/projects/{project_id}/members
 - PUT /api/v1/projects/{project_id}/members/{user_id}
 
+#### Реализованные browser bootstrap endpoints (2026-11-04)
+
+- `GET /api/v1/session` — требует Keycloak JWT и возвращает проверенный user/tenant principal (`authenticated`, `userId`, `displayName`, `tenantId`).
+- `GET /api/v1/projects` — возвращает проекты текущего пользователя через `ProjectService.list`; tenant admins получают проекты tenant, остальные пользователи — только проекты с активным project membership.
+- `GET /api/v1/tenants/{tenant_id}/projects` — существующий tenant-scoped вариант списка проектов.
+- `ProjectRead` включает nullable `description` и `code`.
+
+Эти маршруты — PEA API, не готовый OIDC gateway. Для browser cookie session необходим доверенный HTTPS gateway, который валидирует Keycloak session, не доверяет forwarded headers от клиента и передаёт PEA проверенный Bearer token. CORS должен разрешать только точный origin публичного Pages frontend; wildcard с credentials запрещён. Реальный login/session gateway пока не считается развёрнутым.
+
 ### Документы
 - POST /api/v1/projects/{project_id}/documents — регистрация/загрузка.
 - GET /api/v1/projects/{project_id}/documents
