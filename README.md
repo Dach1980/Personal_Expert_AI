@@ -76,13 +76,13 @@ The worker verifies the original file checksum before parsing, writes extraction
 
 See [Document Extraction Pipeline](docs/architecture/DOCUMENT_EXTRACTION_PIPELINE.md) for adapter coverage, locator formats and current limitations. PDF pages are rendered locally and converted into structured page models. Optional Tesseract OCR is available through the OCR extra plus a separately installed Tesseract executable. OCR preserves word coordinates and avoids replacing native text. Embedded raster images can also be OCR-inspected. Semantic interpretation of engineering drawings by a local vision-language model, PDF vector extraction and full normalization of complex Office layouts remain future work.
 
-The authenticated API accepts signed HS256 JWTs issued by a trusted identity provider. Configure `JWT_SECRET` (at least 32 characters), `JWT_ISSUER` and `JWT_AUDIENCE`. Tokens must carry user UUID in `sub` and tenant UUID in `tenant_id`. The application does not issue tokens or manage passwords yet.
+The authenticated API accepts Keycloak RS256 access tokens and validates their signatures against the configured JWKS. Configure `OIDC_ISSUER`, `OIDC_AUDIENCE=pea-api` and `OIDC_JWKS_URL`. PEA resolves the verified `(iss, sub)` pair through `external_identities`, then checks the existing PEA user, active tenant membership and project membership. External identities are explicitly provisioned with `scripts/provision_oidc_identity.py`; PEA does not create users or grant tenant/project access from an email address or token claim. See [Keycloak integration](docs/architecture/KEYCLOAK_INTEGRATION.md) and [realm setup](infra/keycloak/README.md).
 
 The CI workflow provisions PostgreSQL 16, applies and reverts migrations, checks ORM/schema parity, runs RLS tests using a restricted non-owner database role, and runs the unit test suite. Do not use the placeholder password in docker-compose for any exposed or shared environment.
 
 ## Предварительный технологический контур
 
-- **UI и агентная среда:** отдельный форк Bionic с интерфейсом Personal Expert AI; решение принято для изолированного POC, runtime ещё не развёрнут.
+- **UI и агентная среда:** отдельный форк Bionic с интерфейсом Personal Expert AI, серверным API Adapter и подключением реальных PEA проектов/документов; исходный код и CI проверены, локальный runtime с Keycloak ещё требует сквозной проверки.
 - **LLM runtime:** LM Studio за собственной provider abstraction; облачный fallback запрещён.
 - **Backend и доменная логика:** Python, FastAPI; Personal Expert AI владеет tenant/project/document lifecycle и инженерными проверками.
 - **Документный и инженерный движок:** собственный Document Processing Pipeline и развитие наработок Project Expert AI.
