@@ -1,15 +1,21 @@
 """Authenticated Tenant, Project and Document endpoints."""
 from urllib.parse import quote
+import json
+import os
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.api.auth import Principal, get_current_principal
 from app.api.dependencies import get_document_upload_service
 from app.api.schemas import (
+    ChatMessageCreate,
+    ChatMessageRead,
+    ConversationCreate,
+    ConversationRead,
     DocumentCreate,
     DocumentRead,
     DocumentVersionRead,
@@ -30,10 +36,12 @@ from app.api.schemas import (
     TenantRead,
 )
 from app.storage.config import storage_root
-from app.storage.database import get_session, set_tenant_context
+from app.storage.database import get_session, get_session_factory, set_tenant_context
 from app.storage.file_store import LocalFileStore, StorageIntegrityError
 from app.storage.models import (
     AuditEvent,
+    ChatConversation,
+    ChatMessage,
     DocumentVersion,
     Evidence,
     Finding,
@@ -51,6 +59,8 @@ from app.storage.services import (
     ResourceNotFoundError,
     TenantService,
 )
+from app.llm.contracts import ProviderError
+from app.llm.lm_studio import LMStudioConfig, LMStudioProvider
 from app.storage.upload_service import (
     DocumentUploadService,
     UploadAccessDenied,
@@ -1023,3 +1033,241 @@ def update_finding_status(
     ))
     session.flush()
     return finding
+
+
+@router.get(
+    "/tenants/{tenant_id}/projects/{project_id}/conversations",
+    response_model=list[ConversationRead],
+    tags=["conversations"],
+)
+def list_conversations(
+    tenant_id: UUID,
+    project_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: Session = Depends(get_session),
+):
+    _check_tenant(tenant_id, principal)
+    try:
+        ProjectService(session).get(tenant_id, project_id, principal.user_id)
+    except ResourceNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found") from None
+    set_tenant_context(session, tenant_id)
+    return list(session.scalars(
+        select(ChatConversation)
+        .where(
+            ChatConversation.tenant_id == tenant_id,
+            ChatConversation.project_id == project_id,
+            ChatConversation.status == "active",
+        )
+        .order_by(ChatConversation.updated_at.desc(), ChatConversation.id)
+    ))
+
+
+@router.post(
+    "/tenants/{tenant_id}/projects/{project_id}/conversations",
+    response_model=ConversationRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["conversations"],
+)
+def create_conversation(
+    tenant_id: UUID,
+    project_id: UUID,
+    payload: ConversationCreate,
+    principal: Principal = Depends(get_current_principal),
+    session: Session = Depends(get_session),
+):
+    _check_tenant(tenant_id, principal)
+    try:
+        ProjectService(session).get(tenant_id, project_id, principal.user_id)
+    except ResourceNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found") from None
+    conversation = ChatConversation(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        project_id=project_id,
+        created_by=principal.user_id,
+        title=payload.title.strip(),
+        status="active",
+    )
+    session.add(conversation)
+    session.flush()
+    return conversation
+
+
+@router.get(
+    "/tenants/{tenant_id}/projects/{project_id}/conversations/{conversation_id}/messages",
+    response_model=list[ChatMessageRead],
+    tags=["conversations"],
+)
+def list_conversation_messages(
+    tenant_id: UUID,
+    project_id: UUID,
+    conversation_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: Session = Depends(get_session),
+):
+    _check_tenant(tenant_id, principal)
+    try:
+        ProjectService(session).get(tenant_id, project_id, principal.user_id)
+    except ResourceNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found") from None
+    set_tenant_context(session, tenant_id)
+    conversation = session.scalar(select(ChatConversation).where(
+        ChatConversation.tenant_id == tenant_id,
+        ChatConversation.project_id == project_id,
+        ChatConversation.id == conversation_id,
+        ChatConversation.status == "active",
+    ))
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return list(session.scalars(
+        select(ChatMessage)
+        .where(
+            ChatMessage.tenant_id == tenant_id,
+            ChatMessage.project_id == project_id,
+            ChatMessage.conversation_id == conversation_id,
+        )
+        .order_by(ChatMessage.created_at, ChatMessage.id)
+    ))
+
+
+@router.post(
+    "/tenants/{tenant_id}/projects/{project_id}/conversations/{conversation_id}/messages",
+    tags=["conversations"],
+)
+def send_conversation_message(
+    tenant_id: UUID,
+    project_id: UUID,
+    conversation_id: UUID,
+    payload: ChatMessageCreate,
+    principal: Principal = Depends(get_current_principal),
+    session: Session = Depends(get_session),
+):
+    """Persist the prompt and stream a response from the configured local LM Studio model."""
+    _check_tenant(tenant_id, principal)
+    model = os.getenv("PEA_LLM_MODEL", "").strip()
+    if not model:
+        raise HTTPException(
+            status_code=503,
+            detail="Local model is not configured; set PEA_LLM_MODEL",
+        )
+    try:
+        provider = LMStudioProvider(
+            LMStudioConfig(
+                base_url=os.getenv("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234/v1"),
+                timeout_seconds=float(os.getenv("LM_STUDIO_TIMEOUT_SECONDS", "180")),
+            )
+        )
+    except (RuntimeError, ValueError):
+        raise HTTPException(
+            status_code=503,
+            detail="Local LM Studio provider is unavailable or incorrectly configured",
+        ) from None
+
+    content = payload.content.strip()
+    if not content:
+        raise HTTPException(status_code=422, detail="Message cannot be empty")
+    try:
+        ProjectService(session).get(tenant_id, project_id, principal.user_id)
+    except ResourceNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found") from None
+
+    factory = get_session_factory()
+    with factory.begin() as write_session:
+        set_tenant_context(write_session, tenant_id)
+        conversation = write_session.scalar(select(ChatConversation).where(
+            ChatConversation.tenant_id == tenant_id,
+            ChatConversation.project_id == project_id,
+            ChatConversation.id == conversation_id,
+            ChatConversation.status == "active",
+        ))
+        if conversation is None:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        history = list(write_session.scalars(
+            select(ChatMessage)
+            .where(
+                ChatMessage.tenant_id == tenant_id,
+                ChatMessage.project_id == project_id,
+                ChatMessage.conversation_id == conversation_id,
+            )
+            .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc())
+            .limit(20)
+        ))
+        history.reverse()
+        write_session.add(ChatMessage(
+            id=uuid4(),
+            tenant_id=tenant_id,
+            project_id=project_id,
+            conversation_id=conversation_id,
+            role="user",
+            content=content,
+            created_by=principal.user_id,
+        ))
+        history_payload = [
+            {"role": item.role, "content": item.content}
+            for item in history
+        ]
+        history_payload.append({"role": "user", "content": content})
+
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "Ты — помощник Personal Expert AI. Отвечай по существу. "
+                "Не выдумывай факты и нормативные ссылки. Если в контексте нет "
+                "доказательств, прямо сообщи об этом. Пока не подключён retrieval, "
+                "не утверждай, что проверил документы проекта."
+            ),
+        },
+        *history_payload,
+    ]
+
+    def event_stream():
+        yield "event: message_start\\ndata: {}\\n\\n"
+        answer_parts: list[str] = []
+        try:
+            for item in provider.stream_chat(model=model, messages=messages):
+                if item.event == "delta" and item.content:
+                    answer_parts.append(item.content)
+                    yield "event: text_delta\\ndata: " + json.dumps(
+                        {"delta": item.content}, ensure_ascii=False
+                    ) + "\\n\\n"
+            answer = "".join(answer_parts).strip()
+            if answer:
+                with factory.begin() as write_session:
+                    set_tenant_context(write_session, tenant_id)
+                    write_session.add(ChatMessage(
+                        id=uuid4(),
+                        tenant_id=tenant_id,
+                        project_id=project_id,
+                        conversation_id=conversation_id,
+                        role="assistant",
+                        content=answer,
+                        model=model,
+                        created_by=None,
+                    ))
+                    write_session.execute(
+                        update(ChatConversation)
+                        .where(
+                            ChatConversation.tenant_id == tenant_id,
+                            ChatConversation.project_id == project_id,
+                            ChatConversation.id == conversation_id,
+                        )
+                        .values(updated_at=func.now())
+                    )
+            yield "event: message_end\\ndata: {}\\n\\n"
+        except (ProviderError, Exception) as exc:
+            # Do not expose provider internals, local paths, or upstream details.
+            yield "event: error\\ndata: " + json.dumps(
+                {"message": "Локальная модель не смогла завершить ответ."},
+                ensure_ascii=False,
+            ) + "\\n\\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-store",
+            "X-Accel-Buffering": "no",
+        },
+    )
