@@ -94,7 +94,7 @@ The Bionic server-side API Adapter now exposes a fixed set of GET routes under `
 - Bionic now verifies Keycloak RS256/JWKS tokens and has fixed server-side GET adapter routes for projects, documents, versions, source fragments, artifacts, knowledge, reviews, findings and evidence.
 - Bionic's authenticated `/o/{team_id}/pea` workspace page is wired into Documents, Reviews and Knowledge Base navigation. It loads live PEA data through same-origin adapter routes and connects source-fragment locators to rendered page previews.
 - The Keycloak client-scope template and provisioning command are committed, but the audience/tenant mappers still need to be imported into the running Bionic realm and an actual user must be explicitly mapped. Local runtime verification of the Stack OIDC gateway, PEA network reachability, and full login/dialogue/Agent Runtime end-to-end flow remains outstanding.
-- The fork CI no longer attempts to publish Docker images to the upstream GHCR package. Rust verification for the new authentication/adapter commits is still running; only completed successful workflow runs will be considered proof of compilation.
+- The fork CI no longer attempts to publish Docker images to the upstream GHCR package. The latest completed Rust and browser-assets workflow passed: 63 Rust tests, formatting, server compilation and web-assets build. Full Keycloak gateway runtime verification is still outstanding.
 
 
 ## Using the Keycloak instance already provisioned for Bionic
@@ -134,3 +134,6 @@ python scripts/provision_oidc_identity.py \
 ```
 
 This command only binds an already-existing active PEA user. It never creates a user, tenant, membership, project grant or owner role. Those must exist independently before the user can access project data.
+
+
+For repeatable setup, use [`infra/keycloak/README.md`](../../infra/keycloak/README.md) and run `python scripts/configure_keycloak_realm.py`. The script idempotently creates/updates the `pea-api` audience client, the `pea-api-context` scope and attaches it as a default scope to the Bionic OIDC client. It uses admin credentials supplied only through environment variables and does not create PEA users or memberships.
