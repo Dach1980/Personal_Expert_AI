@@ -40,8 +40,8 @@ jobs:
         run: pip install -e ".[database,dev,processing,ocr,benchmark,llm]"
       - name: Validate Keycloak provisioning scripts
         run: |
-          python -m py_compile scripts/configure_keycloak_realm.py scripts/provision_oidc_identity.py
-          ruff check scripts/configure_keycloak_realm.py scripts/provision_oidc_identity.py
+          python -m py_compile scripts/configure_keycloak_realm.py scripts/provision_oidc_identity.py scripts/bootstrap_initial_workspace.py
+          ruff check scripts/configure_keycloak_realm.py scripts/provision_oidc_identity.py scripts/bootstrap_initial_workspace.py
       - name: Upgrade to head
         run: alembic upgrade head
       - name: Create restricted application role for RLS tests
