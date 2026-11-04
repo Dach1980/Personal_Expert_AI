@@ -18,13 +18,18 @@ from app.storage.models import (
     AuditEvent,
     DocumentVersion,
     ExternalIdentity,
+    Evidence,
+    Finding,
     Membership,
+    Project,
+    Review,
     Tenant,
     User,
 )
 from app.storage.upload_service import DocumentUploadService, UploadAccessDenied, UploadConflict
 
-DATABASE_URL = os.getenv("APP_DATABASE_URL") or os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL")
+APP_DATABASE_URL = os.getenv("APP_DATABASE_URL")
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="PostgreSQL DATABASE_URL is required")
 
 
@@ -473,10 +478,71 @@ def test_keycloak_principal_sets_rls_context_before_membership_lookup(monkeypatc
     monkeypatch.setattr(auth, "_jwks_client", lambda _url: JwksClient())
 
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+    # Resolve the principal using the same restricted role as the application,
+    # not the schema-owner connection used to prepare the fixture.
+    rls_factory = build_session_factory(APP_DATABASE_URL or DATABASE_URL)
     try:
-        with factory() as session, session.begin():
+        with rls_factory() as session, session.begin():
             principal = auth.get_current_principal(credentials, session)
             assert principal.user_id == user_id
             assert principal.tenant_id == tenant_id
     finally:
         factory.kw["bind"].dispose()
+        rls_factory.kw["bind"].dispose()
+
+
+def test_review_finding_evidence_tables_enforce_tenant_rls():
+    if not APP_DATABASE_URL:
+        pytest.skip("APP_DATABASE_URL restricted role is required for RLS verification")
+
+    tenant_id, user_id, project_id = uuid4(), uuid4(), uuid4()
+    review_id, finding_id, evidence_id = uuid4(), uuid4(), uuid4()
+    owner_factory = build_session_factory(DATABASE_URL)
+    app_factory = build_session_factory(APP_DATABASE_URL)
+    try:
+        with owner_factory() as session, session.begin():
+            set_tenant_context(session, tenant_id)
+            session.add(Tenant(id=tenant_id, name="Review RLS tenant", status="active"))
+            session.add(User(id=user_id, login=f"review-rls-{user_id}@test.local", status="active"))
+            session.flush()
+            session.add(Membership(
+                id=uuid4(), tenant_id=tenant_id, user_id=user_id,
+                role="member", status="active",
+            ))
+            session.add(Project(
+                id=project_id, tenant_id=tenant_id, name="RLS project",
+                status="active", project_metadata={},
+            ))
+            session.flush()
+            session.add(Review(
+                id=review_id, tenant_id=tenant_id, project_id=project_id,
+                title="RLS review", scope="project", status="draft",
+                created_by=user_id, review_metadata={},
+            ))
+            session.flush()
+            session.add(Finding(
+                id=finding_id, tenant_id=tenant_id, project_id=project_id,
+                review_id=review_id, classification="evidence_gap", severity="minor",
+                status="open", title="Missing source", description="Fixture finding",
+                created_by=user_id,
+            ))
+            session.flush()
+            session.add(Evidence(
+                id=evidence_id, tenant_id=tenant_id, project_id=project_id,
+                finding_id=finding_id, evidence_type="note", relation="context",
+                locator={}, excerpt="Fixture note", created_by=user_id,
+            ))
+
+        with app_factory() as session, session.begin():
+            for table in ("reviews", "findings", "evidence"):
+                assert session.execute(text("SELECT count(*) FROM " + table)).scalar_one() == 0
+            set_tenant_context(session, uuid4())
+            for table in ("reviews", "findings", "evidence"):
+                assert session.execute(text("SELECT count(*) FROM " + table)).scalar_one() == 0
+            set_tenant_context(session, tenant_id)
+            assert session.execute(text("SELECT count(*) FROM reviews")).scalar_one() == 1
+            assert session.execute(text("SELECT count(*) FROM findings")).scalar_one() == 1
+            assert session.execute(text("SELECT count(*) FROM evidence")).scalar_one() == 1
+    finally:
+        owner_factory.kw["bind"].dispose()
+        app_factory.kw["bind"].dispose()
