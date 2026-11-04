@@ -215,7 +215,8 @@
 - [x] UI загружает пользовательскую сессию и список проектов через `GET /api/v1/session` и `GET /api/v1/projects`; добавлены loading/error/401 states, а demo mode включается только явно (`VITE_DEMO_MODE=true`).
 - [x] PEA endpoints для session/project list реализованы с использованием проверенного JWT principal и `ProjectService.list`; unit test для session endpoint и PostgreSQL CI пройдены.
 - [ ] Проверить актуальную доступность сайта и SPA routes в браузере.
-- [ ] Завершить branding, logo, favicon и навигацию.
+- [x] Подключить существующий logo.svg в sidebar/header/footer и favicon; базовая навигация уже реализована.
+- [ ] Провести визуальную проверку branding и адаптивности в реальном браузере.
 - [x] Убрать demo data из обычного режима и подключить session/project loading через независимый API client.
 - [ ] Развернуть доверенный HTTPS gateway, который связывает Keycloak session cookie с PEA Bearer auth; сам login/session UX ещё не реализован.
 - [ ] Подключить HTTPS backend gateway и точный CORS allowlist.
