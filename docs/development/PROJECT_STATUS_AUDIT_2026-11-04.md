@@ -61,9 +61,13 @@
 
 ### PEA backend и база данных
 
-- [ ] Расширить catalog-level проверку всех FK, индексов, CHECK constraints, delete actions и ORM relationships; имеющиеся migration/schema checks не считать заменой полного аудита всех комбинаций.
-- [ ] Расширить adversarial integration tests для всех endpoint и всех сочетаний tenant/project membership.
+- [x] Добавлена catalog-level сверка ORM и PostgreSQL для FK (с колонками, target и `ON DELETE`), UNIQUE, CHECK names и индексов; дополнительно сохраняются `alembic check` и сравнение таблиц/колонок.
+- [x] Повторно подтверждён PostgreSQL 16 CI: upgrade, schema parity, integration tests, downgrade base, re-upgrade head, full pytest и Ruff — success (run [41760466319](https://github.com/Dach1980/Personal_Expert_AI/actions/runs/41760466319)).
+- [x] Подтверждены существующие adversarial tests: cross-tenant composite FK, document/version project consistency, RLS visibility, cross-project document access, viewer upload denial и JWT tenant-context lookup.
+- [ ] Полное покрытие каждого endpoint и всех негативных OIDC/membership lifecycle сценариев остаётся открытым.
 - [ ] Проверить production runtime DB role, секреты, TLS и настройки подключения на целевом стенде.
+- [ ] Зафиксировать явные правила удаления/архивирования доменных сущностей. В текущих FK нет `ON DELETE CASCADE`; действует ограничительное поведение PostgreSQL по умолчанию.
+- [ ] Решить, нужны ли SQLAlchemy `relationship()` mappings: сейчас они отсутствуют; целостность обеспечивается FK/constraints и сервисным слоем.
 - [ ] Проверить ротацию/отзыв identity, изменения membership и отказ доступа после блокировки пользователя/tenant.
 - [ ] Проверить полный цикл backup/restore на реальном окружении.
 
@@ -117,9 +121,11 @@
 - [x] Есть GitHub Actions workflow; Pages deployment run #51 от 2026-11-03 завершился `success`.
 - [x] Есть изолированный API client для будущего API Adapter.
 - [ ] Проверить текущую доступность сайта и прямые SPA routes/refresh в браузере.
-- [ ] Завершить финальную интеграцию logo/favicon и branding.
-- [ ] Доработать типизированный API contract и подключить существующий API client к реальному backend adapter, не привязывая frontend к внутренним URL Bionic.
-- [ ] Реализовать login/session UX с учётом Keycloak/OIDC и ограничений static hosting.
+- [x] Использовать существующий `assets/logo.svg` в header/sidebar и footer.
+- [ ] Проверить favicon в `index.html` и завершить финальную интеграцию branding.
+- [x] Доработать API client и подключить загрузку session/projects к PEA endpoints `/api/v1/session` и `/api/v1/projects`; API contract документирован.
+- [ ] Развернуть доверенный HTTPS API gateway/BFF для cookie session → Bearer token; не подключать браузер напрямую к PEA/Bionic внутренним адресам.
+- [ ] Реализовать реальный Keycloak/OIDC login/session UX через доверенный gateway; текущая UI обрабатывает 401, но не выполняет login/logout.
 - [ ] Подключить frontend к защищённому backend API через HTTPS gateway; настроить точный CORS allowlist.
 - [ ] Реализовать проекты, документы, версии, processing status, чат и evidence presentation.
 - [ ] Проверить streaming/SSE, browser refresh, logout, token lifecycle и обработку ошибок.
