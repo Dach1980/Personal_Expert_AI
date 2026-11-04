@@ -1,9 +1,10 @@
 """Compare migrated PostgreSQL schema objects with SQLAlchemy metadata.
 
-The check intentionally covers named constraints and indexes in addition to
-columns. Alembic's autogenerate check remains a separate, complementary gate.
+The check covers columns, foreign keys, unique/check constraints and indexes.
+Alembic's autogenerate check remains a separate, complementary gate.
 """
 import os
+from collections import Counter
 
 import pytest
 from sqlalchemy import CheckConstraint, ForeignKeyConstraint, Index, UniqueConstraint, create_engine, inspect
@@ -29,43 +30,41 @@ def test_postgres_table_and_column_inventory_matches_orm():
 
 
 def test_named_constraints_and_indexes_match_orm():
-    """Detect schema drift hidden by a table/column-only comparison."""
+    """Detect drift hidden by a table/column-only comparison."""
     engine = create_engine(DATABASE_URL)
     try:
         inspector = inspect(engine)
         for table_name, table in Base.metadata.tables.items():
-            db_fks = {
-                item["name"]: (
+            db_fks = Counter(
+                (
                     tuple(item["constrained_columns"]),
                     item["referred_table"],
                     tuple(item["referred_columns"]),
                     (item.get("options") or {}).get("ondelete"),
                 )
                 for item in inspector.get_foreign_keys(table_name)
-                if item.get("name")
-            }
-            orm_fks = {
-                item.name: (
+            )
+            orm_fks = Counter(
+                (
                     tuple(column.name for column in item.columns),
                     item.elements[0].column.table.name,
                     tuple(element.column.name for element in item.elements),
                     item.ondelete,
                 )
                 for item in table.constraints
-                if isinstance(item, ForeignKeyConstraint) and item.name
-            }
+                if isinstance(item, ForeignKeyConstraint)
+            )
             assert db_fks == orm_fks, f"{table_name}: foreign keys"
 
-            db_uniques = {
-                item["name"]: tuple(item["column_names"])
+            db_uniques = Counter(
+                tuple(item["column_names"])
                 for item in inspector.get_unique_constraints(table_name)
-                if item.get("name")
-            }
-            orm_uniques = {
-                item.name: tuple(column.name for column in item.columns)
+            )
+            orm_uniques = Counter(
+                tuple(column.name for column in item.columns)
                 for item in table.constraints
-                if isinstance(item, UniqueConstraint) and item.name
-            }
+                if isinstance(item, UniqueConstraint)
+            )
             assert db_uniques == orm_uniques, f"{table_name}: unique constraints"
 
             db_checks = {
