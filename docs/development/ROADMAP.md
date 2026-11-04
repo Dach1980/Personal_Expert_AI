@@ -202,3 +202,25 @@
 4. Измеримые показатели качества, latency и устойчивости не хуже согласованных порогов.
 5. Есть миграция данных, план отката, backup/restore и проверенные тесты.
 6. Bionic не становится параллельным владельцем проектов, документов и идентичности без отдельного архитектурного решения.
+
+
+## Фаза 8. Публичный рабочий сайт Personal Expert AI — обязательный поток
+
+**Решение от 2026-11-04:** рабочую публичную web-версию продукта разрабатывать в отдельном публичном репозитории [Dach1980/Personal_Expert_AI_Web](https://github.com/Dach1980/Personal_Expert_AI_Web) и публиковать через GitHub Pages: https://dach1980.github.io/Personal_Expert_AI_Web/. Это обязательный deliverable, а не только документация или запасной вариант.
+
+- [ ] Проверить репозиторий и настройки GitHub Pages.
+- [ ] Создать SPA и настроить base path `/Personal_Expert_AI_Web/`.
+- [ ] Настроить GitHub Actions build/deploy из `main`.
+- [ ] Реализовать branding, logo, favicon, навигацию и основные страницы.
+- [ ] Создать независимый API client/adapter с типизированными контрактами.
+- [ ] Реализовать безопасный Keycloak/OIDC login/session flow.
+- [ ] Подключить HTTPS backend gateway и точный CORS allowlist.
+- [ ] Подключить проекты, документы, версии, статусы обработки, чат и evidence.
+- [ ] Провести browser E2E, streaming и security tests (IDOR, cross-tenant/project).
+- [ ] Убедиться, что в Pages assets нет секретов, приватных документов и постоянных токенов.
+
+GitHub Pages обслуживает только статические assets. FastAPI, Bionic runtime, Keycloak, PostgreSQL, workers, private storage и LM Studio работают отдельно. Браузер не обращается к PostgreSQL/LM Studio напрямую. Подробности: [GitHub Pages frontend](../integrations/bionic/GITHUB_PAGES_FRONTEND.md).
+
+## Контрольная точка аудита 2026-11-04
+
+Полный сводный чек-лист текущего состояния, незакрытых задач и критериев первого прототипа: [PROJECT_STATUS_AUDIT_2026-11-04.md](PROJECT_STATUS_AUDIT_2026-11-04.md). Обновлять его по фактическим commit SHA, CI и runtime-проверкам.
