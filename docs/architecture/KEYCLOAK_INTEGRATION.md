@@ -97,6 +97,36 @@ The Bionic server-side API Adapter now exposes a fixed set of GET routes under `
 - The fork CI no longer attempts to publish Docker images to the upstream GHCR package. The latest completed Rust and browser-assets workflow passed: 63 Rust tests, formatting, server compilation and web-assets build. Full Keycloak gateway runtime verification is still outstanding.
 
 
+## Public GitHub Pages SPA authentication
+
+The public Pages client now uses a dedicated **public** Keycloak client `pea-web` with Authorization Code Flow + PKCE S256. It has no client secret and no password grant. The bootstrap script `scripts/configure_keycloak_realm.py` creates/updates this client and attaches the same `pea-api-context` default scope used by Bionic so access tokens contain the `pea-api` audience and the configured `tenant_id` attribute.
+
+Configure exact redirect/origin allowlists before running the script:
+
+- `PEA_WEB_REDIRECT_URIS`: comma-separated full callback URLs; default is `https://dach1980.github.io/Personal_Expert_AI_Web/`.
+- `PEA_WEB_ORIGINS`: comma-separated browser origins; default is `https://dach1980.github.io`.
+
+The SPA keeps access and refresh tokens in JavaScript memory only; it does not persist bearer tokens in localStorage or sessionStorage. Only transient PKCE verifier/state/nonce values are stored in sessionStorage for the redirect round-trip. It sends the access token as an Authorization Bearer header to the Bionic PEA Adapter. Bionic validates RS256/JWKS, issuer, audience and time claims before forwarding the same token to PEA; PEA independently repeats validation and checks its own tenant/project memberships. Bionic supports both the trusted Stack-injected `X-Forwarded-Access-Token` header and a standards-based Bearer header; the forwarded header takes precedence.
+
+Set Bionic server environment:
+
+- `PEA_API_BASE_URL`: private PEA API origin reachable from Bionic.
+- `PEA_WEB_ORIGIN`: exact Pages origin (scheme + host, no path), e.g. `https://dach1980.github.io`.
+
+Bionic CORS is disabled for cross-origin browser calls unless `PEA_WEB_ORIGIN` is set. When set, only that exact origin is allowed, with GET/POST/OPTIONS and Authorization/Content-Type/Accept headers. Credentials/cookies are not enabled for this bearer-token SPA flow. Do not use wildcard origins.
+
+The Stack-managed Keycloak realm remains the single IdP; do not deploy another Keycloak. The Bionic Stack OIDC gateway remains in place for the Bionic web UI. The Pages SPA's public-client PKCE flow is separate: it obtains a short-lived user access token and calls Bionic's authenticated PEA Adapter routes. No service credentials, PEA database credentials or model-provider keys are exposed to the browser.
+
+## Local chat provider
+
+PEA conversation/message records are tenant- and project-scoped, protected by PostgreSQL RLS and composite foreign keys. Configure the local inference process with:
+
+- `PEA_LLM_MODEL`: exact model identifier returned by LM Studio.
+- `LM_STUDIO_BASE_URL`: optional; defaults to `http://127.0.0.1:1234/v1`.
+- `LM_STUDIO_TIMEOUT_SECONDS`: optional; defaults to 180.
+
+The provider adapter rejects non-loopback endpoints; there is no cloud fallback. The current chat endpoint persists messages and streams LM Studio deltas through PEA and Bionic. Retrieval over uploaded project documents is not yet inserted into the chat prompt; the UI explicitly tells users that chat does not yet have automatic document context.
+
 ## Using the Keycloak instance already provisioned for Bionic
 
 Do not deploy a second Keycloak instance. The Bionic Stack manifest already enables the Stack OIDC component. Stack installs/uses a shared Keycloak control plane and creates a realm for each StackApp; its OIDC component places oauth2-proxy in front of the app. The Bionic realm is `bionic-gpt` (also reflected in its configured logout URL).
