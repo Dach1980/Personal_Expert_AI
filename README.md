@@ -98,3 +98,10 @@ The CI workflow provisions PostgreSQL 16, applies and reverts migrations, checks
 ## Важно
 
 Документы описывают целевую архитектуру и проектные контракты. Они не означают, что все функции уже реализованы или проверены. Технологические решения, зависящие от runtime, производительности и качества, подтверждаются прототипами и тестами.
+
+
+## Публичный рабочий сайт
+
+Рабочая публичная web-версия Personal Expert AI разрабатывается отдельно в [Dach1980/Personal_Expert_AI_Web](https://github.com/Dach1980/Personal_Expert_AI_Web) и публикуется через [GitHub Pages](https://dach1980.github.io/Personal_Expert_AI_Web/). Это обязательный самостоятельный deliverable проекта. GitHub Pages размещает только статический frontend; FastAPI, Bionic runtime, Keycloak, PostgreSQL, workers, приватное хранилище и LM Studio работают отдельно и доступны только через защищённую backend boundary.
+
+Актуальный сводный статус и этапы: [аудит проекта от 2026-11-04](docs/development/PROJECT_STATUS_AUDIT_2026-11-04.md). Архитектура публичного frontend: [GitHub Pages frontend](docs/integrations/bionic/GITHUB_PAGES_FRONTEND.md).
