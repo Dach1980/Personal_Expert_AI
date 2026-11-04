@@ -211,11 +211,13 @@
 - [x] Публичный репозиторий существует; React/TypeScript/Vite frontend shell уже создан.
 - [x] Настроен base path `/Personal_Expert_AI_Web/`.
 - [x] GitHub Actions Pages deployment workflow существует; run #51 (2026-11-03) завершился успешно.
-- [x] Есть базовые Sidebar, ProjectList, ChatPanel и API client.
+- [x] Есть базовые Sidebar, ProjectList, ChatPanel и изолированный API client.
+- [x] UI загружает пользовательскую сессию и список проектов через `GET /api/v1/session` и `GET /api/v1/projects`; добавлены loading/error/401 states, а demo mode включается только явно (`VITE_DEMO_MODE=true`).
+- [x] PEA endpoints для session/project list реализованы с использованием проверенного JWT principal и `ProjectService.list`; unit test для session endpoint и PostgreSQL CI пройдены.
 - [ ] Проверить актуальную доступность сайта и SPA routes в браузере.
 - [ ] Завершить branding, logo, favicon и навигацию.
-- [ ] Заменить demo data реальными данными через независимый API client/adapter.
-- [ ] Реализовать безопасный Keycloak/OIDC login/session flow.
+- [x] Убрать demo data из обычного режима и подключить session/project loading через независимый API client.
+- [ ] Развернуть доверенный HTTPS gateway, который связывает Keycloak session cookie с PEA Bearer auth; сам login/session UX ещё не реализован.
 - [ ] Подключить HTTPS backend gateway и точный CORS allowlist.
 - [ ] Подключить проекты, документы, версии, статусы обработки, чат и evidence.
 - [ ] Провести browser E2E, streaming и security tests (IDOR, cross-tenant/project).
