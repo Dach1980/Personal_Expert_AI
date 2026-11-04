@@ -24,7 +24,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, quote
 from urllib.request import Request, urlopen
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class KeycloakAdmin:
@@ -104,6 +104,7 @@ def main() -> int:
     require_success(status, {200}, "Find pea-api client", clients)
     if clients:
         client_uuid = clients[0]["id"]
+        audience_client["id"] = client_uuid
         status, _, body = admin.request("PUT", f"{realm_path}/clients/{client_uuid}", audience_client)
         require_success(status, {204}, "Update pea-api client", body)
         print("Updated pea-api audience client.")
