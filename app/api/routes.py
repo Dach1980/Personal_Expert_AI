@@ -1,7 +1,7 @@
 """Authenticated Tenant, Project and Document endpoints."""
-from urllib.parse import quote
 import json
 import os
+from urllib.parse import quote
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Response, UploadFile, status
@@ -52,6 +52,7 @@ from app.storage.models import (
     SourceFragment,
     User,
 )
+from app.llm.lm_studio import LMStudioConfig, LMStudioProvider
 from app.storage.services import (
     AccessDeniedError,
     DocumentService,
@@ -59,7 +60,6 @@ from app.storage.services import (
     ResourceNotFoundError,
     TenantService,
 )
-from app.llm.lm_studio import LMStudioConfig, LMStudioProvider
 from app.storage.upload_service import (
     DocumentUploadService,
     UploadAccessDenied,
