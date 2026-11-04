@@ -26,9 +26,6 @@ jobs:
     env:
       DATABASE_URL: postgresql+psycopg://personal_expert:personal_expert@localhost:5432/personal_expert
       APP_DATABASE_URL: postgresql+psycopg://app_runtime:app_runtime_test_password@localhost:5432/personal_expert
-      JWT_SECRET: ci-only-secret-key-that-is-at-least-32-characters
-      JWT_ISSUER: personal-expert-ai-ci
-      JWT_AUDIENCE: personal-expert-ai
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
