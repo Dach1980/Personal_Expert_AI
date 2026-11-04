@@ -42,7 +42,21 @@ The mapper places this attribute into the **access token**. PEA still checks its
 
 Do not add a user to a tenant or project merely by changing a token mapper.
 
-## 3. Provision the external identity mapping
+## 3. Create the first local PEA workspace (fresh database only)
+
+If this is a fresh PEA database and no user/tenant/project exists yet, create the initial local records explicitly:
+
+```powershell
+$env:DATABASE_URL = "postgresql+psycopg://..."
+python scripts/bootstrap_initial_workspace.py `
+  --login "your-login@example.local" `
+  --tenant-name "My organization" `
+  --project-name "First project"
+```
+
+The command creates one active PEA user, one tenant with that user as owner, and one project with project-manager membership. It refuses to reuse an existing login. It does not create a Keycloak user or external identity mapping. Do not run it against a populated production database.
+
+## 4. Provision the external identity mapping
 
 First create the PEA user, tenant membership and project memberships through the normal PEA administrative workflow. Then obtain the user's immutable Keycloak `sub` from the realm and run:
 
@@ -58,7 +72,7 @@ The command binds `(issuer, subject)` to an existing active PEA user. It refuses
 
 For production, use the HTTPS issuer URL configured for the deployment, not the local HTTP URL.
 
-## 4. Configure the services
+## 5. Configure the services
 
 PEA environment:
 
@@ -75,7 +89,7 @@ Bionic web-server environment:
 
 Bionic must remain behind the trusted Stack OIDC gateway. The gateway must strip any client-supplied `X-Forwarded-Access-Token` header and inject the actual access token after authenticating the browser session. Never expose the Bionic application port directly to an untrusted network.
 
-## 5. Verify
+## 6. Verify
 
 1. Open the realm's OIDC discovery document at `{KEYCLOAK_BASE_URL}/realms/{KEYCLOAK_REALM}/.well-known/openid-configuration`.
 2. Confirm that the `issuer` exactly matches `OIDC_ISSUER`.
