@@ -235,3 +235,10 @@ GitHub Pages — статический хостинг. В публичном р
 Краткий вывод: PEA backend и conversation/provider API реализованы на уровне кода; Bionic PEA Adapter содержит document/conversation routes, но PEA document retrieval в Agent Runtime ещё не реализован; Web 0.4.0 содержит PKCE/API client/chat/document workspace. Реальный Keycloak login, trusted gateway, LM Studio runtime и сквозной E2E остаются неподтверждёнными.
 
 Commit combined status checks для актуальных HEAD не вернули status contexts, а доступный GitHub connector не предоставил общий список последних push workflow runs. Поэтому исторические успешные CI run, перечисленные выше, не перенесены на текущие HEAD. Следующая задача — зафиксировать актуальные Actions runs всех трёх репозиториев, закрыть Bionic Rust build/test gate и затем проверить trusted gateway + реальный PKCE login в локальном Stack. См. подробный порядок и критерии приёмки в отчёте сверки.
+
+
+## Execution update — 2026-11-04
+
+The eight-step execution checklist has been evaluated against current GitHub Actions and repository source. Steps 1 (CI confirmation) and 2 (Bionic Rust tests/build) are complete. Steps 3–7 require a live local Stack/Keycloak/PEA/LM Studio runtime and remain unaccepted. Step 8 (PEA document retrieval in Agent Runtime) requires implementation of a scoped search API/tool and grounded-answer tests; it is not an environment-only task.
+
+Detailed evidence, run URLs, exact tested SHAs, current limitations and the next UAT procedure are recorded in [REPOSITORY_RECONCILIATION_2026-11-04.md](REPOSITORY_RECONCILIATION_2026-11-04.md), section 10.
