@@ -2,7 +2,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ProjectCreate(BaseModel):
@@ -40,6 +40,14 @@ class DocumentRead(BaseModel):
 class ConversationCreate(BaseModel):
     title: str = Field(default="Новый диалог", min_length=1, max_length=300)
 
+    @field_validator("title")
+    @classmethod
+    def title_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Conversation title cannot be blank")
+        return value
+
 
 class ConversationRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -54,6 +62,14 @@ class ConversationRead(BaseModel):
 
 class ChatMessageCreate(BaseModel):
     content: str = Field(min_length=1, max_length=20000)
+
+    @field_validator("content")
+    @classmethod
+    def content_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Message content cannot be blank")
+        return value
 
 
 class ChatMessageRead(BaseModel):
