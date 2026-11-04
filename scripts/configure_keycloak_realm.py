@@ -9,6 +9,8 @@ Required environment:
 Optional:
   KEYCLOAK_REALM          defaults to bionic-gpt
   BIONIC_OIDC_CLIENT_ID   defaults to oauth2-proxy
+  PEA_WEB_REDIRECT_URIS   comma-separated SPA callback URLs
+  PEA_WEB_ORIGINS         comma-separated exact SPA origins
 
 The script creates/updates the pea-api audience client and pea-api-context
 client scope, then attaches that scope as a default scope to Bionic's OIDC
@@ -167,6 +169,57 @@ def main() -> int:
         )
         require_success(status, {204}, "Attach PEA context scope to Bionic", body)
         print("Attached pea-api-context as a default Bionic client scope.")
+
+
+    # Public browser client: Authorization Code + PKCE S256, no client secret.
+    web_client = json.loads((ROOT / "infra/keycloak/pea-web-client.json").read_text(encoding="utf-8"))
+    redirect_uris = [
+        value.strip()
+        for value in os.getenv(
+            "PEA_WEB_REDIRECT_URIS",
+            "https://dach1980.github.io/Personal_Expert_AI_Web/",
+        ).split(",")
+        if value.strip()
+    ]
+    web_origins = [
+        value.strip()
+        for value in os.getenv("PEA_WEB_ORIGINS", "https://dach1980.github.io").split(",")
+        if value.strip()
+    ]
+    if not redirect_uris or not web_origins:
+        raise RuntimeError("PEA_WEB_REDIRECT_URIS and PEA_WEB_ORIGINS must not be empty.")
+    web_client["redirectUris"] = redirect_uris
+    web_client["webOrigins"] = web_origins
+    status, _, web_clients = admin.request("GET", f"{realm_path}/clients?clientId=pea-web")
+    require_success(status, {200}, "Find pea-web client", web_clients)
+    if web_clients:
+        web_uuid = web_clients[0]["id"]
+        web_client["id"] = web_uuid
+        status, _, body = admin.request("PUT", f"{realm_path}/clients/{web_uuid}", web_client)
+        require_success(status, {204}, "Update pea-web client", body)
+        print("Updated public pea-web PKCE client.")
+    else:
+        status, _, body = admin.request("POST", f"{realm_path}/clients", web_client)
+        require_success(status, {201}, "Create pea-web client", body)
+        status, _, web_clients = admin.request("GET", f"{realm_path}/clients?clientId=pea-web")
+        require_success(status, {200}, "Resolve pea-web client", web_clients)
+        if not web_clients:
+            raise RuntimeError("Created pea-web client could not be resolved.")
+        web_uuid = web_clients[0]["id"]
+        print("Created public pea-web PKCE client.")
+
+    status, _, web_scopes = admin.request(
+        "GET", f"{realm_path}/clients/{web_uuid}/default-client-scopes"
+    )
+    require_success(status, {200}, "List pea-web default client scopes", web_scopes)
+    if any(scope["id"] == scope_uuid for scope in web_scopes):
+        print("pea-api-context is already a default scope for pea-web.")
+    else:
+        status, _, body = admin.request(
+            "PUT", f"{realm_path}/clients/{web_uuid}/default-client-scopes/{scope_uuid}"
+        )
+        require_success(status, {204}, "Attach PEA context scope to pea-web", body)
+        print("Attached pea-api-context to pea-web.")
 
     discovery_url = f"{base_url}/realms/{quote(realm, safe='')}/.well-known/openid-configuration"
     try:
