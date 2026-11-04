@@ -218,3 +218,6 @@
 8. Implement PEA-scoped retrieval tool in Agent Runtime and grounded-answer tests.
 
 До закрытия пункта 2 нельзя считать последующие runtime gates проверенными.
+
+
+**Local environment safety note:** the Bionic fork's `.agents/skills/k3d-environment/dev-init.sh` begins with `k3d cluster delete k3d-bionic`. Do not run `just dev-init` against a cluster containing data or workloads that must be preserved. Inspect the current k3d cluster and back up needed state before local UAT. The setup script also disables Kubernetes API TLS verification in the local kubeconfig; keep this limited to disposable local development and do not reuse that kubeconfig for production.
