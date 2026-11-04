@@ -56,7 +56,6 @@ def upgrade() -> None:
         sa.CheckConstraint("length(trim(content)) > 0", name="ck_chat_messages_content_nonempty"),
         sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"]),
         sa.ForeignKeyConstraint(["project_id"], ["projects.id"]),
-        sa.ForeignKeyConstraint(["conversation_id"], ["chat_conversations.id"]),
         sa.ForeignKeyConstraint(["created_by"], ["users.id"]),
         sa.ForeignKeyConstraint(
             ["tenant_id", "project_id", "conversation_id"],
