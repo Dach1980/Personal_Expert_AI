@@ -72,6 +72,7 @@ def test_document_read_routes_are_registered_in_openapi():
         "/api/v1/tenants/{tenant_id}/projects/{project_id}/reviews/{review_id}",
         "/api/v1/tenants/{tenant_id}/projects/{project_id}/reviews/{review_id}/findings",
         "/api/v1/tenants/{tenant_id}/projects/{project_id}/findings/{finding_id}/evidence",
+        "/api/v1/tenants/{tenant_id}/projects/{project_id}/findings/{finding_id}",
     ]
 
     for path in expected:
