@@ -192,7 +192,7 @@
 - [ ] BIONIC-POC-03 — провести сравнительный RAG benchmark на одном русскоязычном инженерном наборе с измерением retrieval quality и сохранения точных source locators.
 - [ ] BIONIC-POC-04 — проверить передачу identity и project/tenant authorization без второго источника истины и без обхода Personal Expert AI access checks.
 - [ ] BIONIC-POC-05 — проверить sandbox isolation, filesystem permissions, network egress, prompt injection и межпользовательскую изоляцию.
-- [ ] BIONIC-POC-06 — проверить возможность отдельного frontend на GitHub Pages и интеграцию с self-hosted Bionic backend.
+- [x] BIONIC-POC-06 — техническая возможность отдельного frontend на GitHub Pages подтверждена; архитектура зафиксирована. Реализация рабочего сайта выполняется как обязательная Фаза 8 в отдельном публичном репозитории.
 - [ ] BIONIC-DECISION-01 — по результатам POC утвердить для каждого компонента REUSE / ADAPT / KEEP / REPLACE отдельным ADR.
 
 Критерии допуска к замене:
