@@ -121,8 +121,8 @@
 - [x] Есть GitHub Actions workflow; Pages deployment run #51 от 2026-11-03 завершился `success`.
 - [x] Есть изолированный API client для будущего API Adapter.
 - [ ] Проверить текущую доступность сайта и прямые SPA routes/refresh в браузере.
-- [x] Использовать существующий `assets/logo.svg` в header/sidebar и footer.
-- [ ] Проверить favicon в `index.html` и завершить финальную интеграцию branding.
+- [x] Использовать существующий `assets/logo.svg` в header/sidebar, footer и favicon (`index.html`).
+- [ ] Завершить финальную проверку визуального branding и адаптивности в браузере.
 - [x] Доработать API client и подключить загрузку session/projects к PEA endpoints `/api/v1/session` и `/api/v1/projects`; API contract документирован.
 - [ ] Развернуть доверенный HTTPS API gateway/BFF для cookie session → Bearer token; не подключать браузер напрямую к PEA/Bionic внутренним адресам.
 - [ ] Реализовать реальный Keycloak/OIDC login/session UX через доверенный gateway; текущая UI обрабатывает 401, но не выполняет login/logout.
