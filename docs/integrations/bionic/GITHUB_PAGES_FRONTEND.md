@@ -40,6 +40,24 @@ Trusted HTTPS gateway / reverse proxy
 
 Схема логическая: browser не обращается напрямую к PostgreSQL, local storage, LM Studio или внутренним портам Bionic. Все операции с данными и проверка прав выполняются на доверенной backend boundary.
 
+## Текущее состояние публичного репозитория (проверено 2026-11-04)
+
+Репозиторий уже создан и содержит начальный frontend, это не пустой проект:
+
+- [x] Публичный репозиторий существует, default branch `main`.
+- [x] React 18 + TypeScript + Vite scaffold.
+- [x] Компоненты Sidebar, ProjectList, ChatPanel и адаптивное рабочее пространство.
+- [x] Vite base path `/Personal_Expert_AI_Web/`.
+- [x] Изолированный API client подготовлен.
+- [x] GitHub Pages deployment workflow присутствует; workflow run #51 от 2026-11-03 завершился успешно.
+- [ ] В текущем README frontend всё ещё описан как demo: используются демонстрационные проекты и локальные сообщения.
+- [ ] Реальная серверная авторизация/session management не подключена.
+- [ ] API Adapter ещё не подключён к проверенному Bionic/PEA backend.
+- [ ] Нет подтверждённой реальной истории диалогов, streaming, загрузки документов, RAG и evidence links.
+- [ ] Backend ACL и cross-tenant/project tests для web flow не выполнены.
+
+Следовательно, сайт уже имеет публикуемый frontend shell и успешный Pages deployment, но пока не является рабочим интегрированным приложением. Следующая задача — не создавать frontend с нуля, а превратить существующий shell в реальный клиент PEA.
+
 ## Обязанности репозитория сайта
 
 - React/Vite или другой согласованный static SPA stack.
