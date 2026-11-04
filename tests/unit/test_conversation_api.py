@@ -6,7 +6,7 @@ from app.main import app
 
 
 def test_conversation_routes_are_registered():
-    paths = {route.path for route in app.routes}
+    paths = set(app.openapi()['paths'])
     assert "/api/v1/tenants/{tenant_id}/projects/{project_id}/conversations" in paths
     assert (
         "/api/v1/tenants/{tenant_id}/projects/{project_id}/conversations/"
