@@ -137,3 +137,49 @@
 - Bionic: изменений не выполнялось.
 
 Эти коммиты не меняют приведённые выше исходные HEAD-снимки; они фиксируют результат аудита и исправляют устаревшее описание Web. CI для документационных коммитов отдельно не заявляется.
+
+
+## 10. Выполнение контрольных шагов — результат 2026-11-04
+
+### 10.1 CI и сборки
+
+**Шаг 1 — подтверждение актуальных CI: выполнен.**
+
+- PEA HEAD `a263e323017d219638737f2b71f228d3621259bf`: [run 41813394892](https://github.com/Dach1980/Personal_Expert_AI/actions/runs/41813394892) — success. Job `postgres-16`: upgrade, ORM/schema parity, downgrade, re-upgrade, full test suite и lint — все шаги success.
+- Bionic code commit `1639300304e6b1b84050ee6b90f403b5c35e97c1`: [run 41764529468](https://github.com/Dach1980/bionic-personal-expert-ai/actions/runs/41764529468) — success. Jobs `rust` и `web-assets` — success; formatting, server compilation, web server tests, Agent Runtime auth/dialogue tests и browser assets build прошли. Текущий HEAD `d0966984957a39a5efe5d407279cfb061424da05` опережает этот code-tested SHA на четыре коммита. GitHub compare подтверждает, что изменения после tested SHA затрагивают только `docs/integration/PEA_API_ADAPTER.md`, `infra-as-code/.env.example` и `infra-as-code/docker-compose.yml`; Rust source не менялся. Изменения compose/env не подтверждены отдельным deployment test.
+- Web HEAD `e54e4680625addd50601516964566cf83c0fdd72`: [run 41813379914](https://github.com/Dach1980/Personal_Expert_AI_Web/actions/runs/41813379914) — build и deploy jobs success. Pages deployment для предыдущего code commit `066f30a` также прошёл успешно. После последнего документационного уточнения Web README/API adapter docs изменены ещё одним docs-only commit; production build code не менялся.
+
+**Шаг 2 — Rust tests и build Bionic: выполнен для текущего Rust source.** Повторные исправления Rust-кода по результатам последнего успешного CI не требуются. Deployment compose/env delta остаётся отдельной непроверенной конфигурацией.
+
+### 10.2 Runtime gates
+
+| № | Контрольный шаг | Результат | Причина / следующее действие |
+|---|---|---|---|
+| 3 | Trusted gateway Keycloak → Bionic → PEA | Не выполнен в runtime | Документы подтверждают Stack OIDC gateway contract; фактический кластер, strip/inject forwarded header, private routing и spoofing tests требуют доступа к локальному Stack |
+| 4 | Реальный PKCE login в Pages SPA | Код готов; runtime не выполнен | OIDC client реализует Authorization Code + PKCE S256, state/nonce, memory-only tokens и refresh. Bootstrap script существует, но не запускался против живого realm; нужны admin credentials и redirect/origin allowlist |
+| 5 | Смена пользователя, tenant, project | Частично готово; runtime не выполнен | PEA identity mapping и membership checks реализованы; тесты покрывают отрицательные сценарии. Текущая модель использует один `tenant_id` в access token; tenant switch UX/flow ещё не реализован. Нужны два тестовых пользователя и несколько tenant/project memberships |
+| 6 | Conversation API + LM Studio | API/CI подтверждены; live inference не выполнен | PEA conversation API, Bionic Adapter и Web SSE client реализованы. Реальная доступность LM Studio, точный `PEA_LLM_MODEL`, потоковый ответ через всю цепочку и timeout/cancel нужно проверить на локальной машине |
+| 7 | Upload документов и processing | Кодовые компоненты готовы; live processing не выполнен | PEA document/version/processing endpoints, Bionic Adapter и Web DocumentWorkspace содержат upload/version/enqueue/fragments/artifacts/evidence flows. Требуется реальный файл, worker, storage, обработка и проверка artifact preview |
+| 8 | PEA retrieval в Agent Runtime | Не реализовано | Bionic Adapter обслуживает документы и knowledge для UI, но Agent Runtime ещё не вызывает tenant/project-scoped PEA search tool. Требуется search API/tool, фильтрация ACL до prompt и grounded-answer regression tests |
+
+### 10.3 Важные ограничения и вывод
+
+- GitHub Actions подтверждает CI, но не может заменить тест локального Stack, Keycloak, Kubernetes/Docker networking или LM Studio на компьютере разработчика.
+- В текущем сеансе нет подключения к локальному компьютеру/кластеру пользователя и нет Keycloak admin credentials. Поэтому шаги 3–7 нельзя безопасно выполнить удалённо из GitHub. Они не отмечаются Done.
+- Для шага 5 нельзя считать смену tenant реализованной: текущая интеграция передаёт один активный tenant context в токене. До разработки tenant switch следует проверить изоляцию между отдельными пользователями/tenant и не добавлять переключатель, который меняет только frontend state.
+- Для шага 8 нельзя называть ответы Bionic документно-обоснованными. До реализации retrieval tool чат должен явно оставаться без автоматического контекста загруженных документов.
+- Web docs/API_ADAPTER.md приведён в соответствие с фактическим кодом DocumentWorkspace 0.4.0: upload/version/processing/evidence UI присутствуют, но live E2E не принят.
+
+### 10.4 Следующий исполнимый этап
+
+После успешного CI gate следующий этап — **локальный runtime UAT авторизации**:
+
+1. Запустить Stack-managed Keycloak realm `bionic-gpt`, Bionic и PEA; убедиться, что Bionic OIDC gateway работает и PEA доступен только по private route.
+2. Выполнить `python scripts/configure_keycloak_realm.py` в PEA с реальными локальными Stack admin credentials; проверить discovery issuer, JWKS, audience `pea-api`, scope `pea-api-context`, public client `pea-web`, exact redirect URI и web origin.
+3. Создать/проверить два PEA user и memberships; выполнить явное identity provisioning по immutable `(issuer, subject)`. Не создавать membership автоматически при входе.
+4. Проверить gateway spoofed-header rejection, invalid signature/issuer/audience/expiry, inactive identity/user/tenant/membership и cross-project IDOR.
+5. Выполнить PKCE login/logout в браузере и подтвердить session/projects.
+6. Только после auth gate проверить conversation/SSE/LM Studio и document upload → processing → SourceFragment/artifact preview.
+7. Отдельной разработкой добавить scoped PEA retrieval tool в Agent Runtime.
+
+**Текущий итог:** шаги 1 и 2 закрыты. Шаги 3–7 требуют локального runtime UAT. Шаг 8 требует разработки, а не только настройки окружения.
