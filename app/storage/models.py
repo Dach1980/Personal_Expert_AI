@@ -436,6 +436,63 @@ class ExternalIdentity(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
 
 
+class ChatConversation(Base, TimestampMixin):
+    """A tenant- and project-scoped conversation owned by a PEA user."""
+
+    __tablename__ = "chat_conversations"
+    __table_args__ = (
+        CheckConstraint("status IN ('active','archived')", name="ck_chat_conversations_status"),
+        UniqueConstraint("tenant_id", "project_id", "id", name="uq_chat_conversations_parent"),
+        Index("ix_chat_conversations_project_updated", "tenant_id", "project_id", "updated_at"),
+        ForeignKeyConstraint(
+            ["tenant_id", "project_id"],
+            ["projects.tenant_id", "projects.id"],
+            name="fk_chat_conversations_project_tenant",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "created_by"],
+            ["memberships.tenant_id", "memberships.user_id"],
+            name="fk_chat_conversations_creator_membership",
+        ),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    tenant_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("tenants.id"), nullable=False)
+    project_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("projects.id"), nullable=False)
+    created_by: Mapped[UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
+    title: Mapped[str] = mapped_column(String(300), nullable=False, default="Новый диалог")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+
+
+class ChatMessage(Base):
+    """An immutable user or assistant message within a project conversation."""
+
+    __tablename__ = "chat_messages"
+    __table_args__ = (
+        CheckConstraint("role IN ('user','assistant')", name="ck_chat_messages_role"),
+        CheckConstraint("length(trim(content)) > 0", name="ck_chat_messages_content_nonempty"),
+        Index("ix_chat_messages_conversation_created", "tenant_id", "conversation_id", "created_at"),
+        ForeignKeyConstraint(
+            ["tenant_id", "project_id", "conversation_id"],
+            ["chat_conversations.tenant_id", "chat_conversations.project_id", "chat_conversations.id"],
+            name="fk_chat_messages_conversation_parent",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "created_by"],
+            ["memberships.tenant_id", "memberships.user_id"],
+            name="fk_chat_messages_sender_membership",
+        ),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    tenant_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("tenants.id"), nullable=False)
+    project_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("projects.id"), nullable=False)
+    conversation_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    model: Mapped[str | None] = mapped_column(String(200))
+    created_by: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Review(Base, TimestampMixin):
     """A structured review session for a project or a specific document version."""
 
