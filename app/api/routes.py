@@ -1144,7 +1144,7 @@ def send_conversation_message(
 ):
     """Persist the prompt and stream a response from the configured local LM Studio model."""
     _check_tenant(tenant_id, principal)
-    model = os.getenv("PEA_LLM_MODEL", "").strip()
+    model = (os.getenv("PEA_LLM_MODEL") or os.getenv("LM_STUDIO_MODEL", "")).strip()
     if not model:
         raise HTTPException(
             status_code=503,
@@ -1154,6 +1154,7 @@ def send_conversation_message(
         provider = LMStudioProvider(
             LMStudioConfig(
                 base_url=os.getenv("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234/v1"),
+                api_key=os.getenv("LM_STUDIO_API_KEY", "lm-studio"),
                 timeout_seconds=float(os.getenv("LM_STUDIO_TIMEOUT_SECONDS", "180")),
             )
         )
