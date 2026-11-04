@@ -1,6 +1,6 @@
 from types import SimpleNamespace
-from uuid import uuid4
 from unittest.mock import Mock
+from uuid import uuid4
 
 from app.api.auth import Principal
 from app.api.routes import get_session_info
