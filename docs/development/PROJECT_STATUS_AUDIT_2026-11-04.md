@@ -118,7 +118,7 @@
 - [x] Есть изолированный API client для будущего API Adapter.
 - [ ] Проверить текущую доступность сайта и прямые SPA routes/refresh в браузере.
 - [ ] Завершить финальную интеграцию logo/favicon и branding.
-- [ ] Создать независимый API client/adapter, не привязанный к внутренним URL или структурам Bionic.
+- [ ] Доработать типизированный API contract и подключить существующий API client к реальному backend adapter, не привязывая frontend к внутренним URL Bionic.
 - [ ] Реализовать login/session UX с учётом Keycloak/OIDC и ограничений static hosting.
 - [ ] Подключить frontend к защищённому backend API через HTTPS gateway; настроить точный CORS allowlist.
 - [ ] Реализовать проекты, документы, версии, processing status, чат и evidence presentation.
