@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -60,6 +60,7 @@ def _bionic_instance() -> str:
 
 
 class BindingCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     bionic_project_id: int = Field(gt=0)
     tenant_id: UUID
     project_id: UUID
@@ -75,6 +76,7 @@ class BindingRead(BaseModel):
 
 
 class DelegationGrantCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     bionic_project_id: int = Field(gt=0)
     bionic_task_id: int = Field(gt=0)
     ttl_seconds: int = Field(default=3600, ge=60, le=604800)
@@ -93,6 +95,7 @@ class DelegationGrantRevoked(BaseModel):
 
 
 class BionicDelegationIssueRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     bionic_project_id: int = Field(gt=0)
     bionic_task_id: int = Field(gt=0)
     owner_subject: str = Field(min_length=1, max_length=255)
@@ -100,6 +103,7 @@ class BionicDelegationIssueRequest(BaseModel):
 
 
 class BionicRetrievalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     grant_token: str = Field(min_length=32, max_length=128)
     bionic_project_id: int = Field(gt=0)
     bionic_task_id: int = Field(gt=0)
