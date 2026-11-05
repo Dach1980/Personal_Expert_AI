@@ -650,7 +650,7 @@ class SystemAdminGrant(Base, TimestampMixin):
     __table_args__ = (
         CheckConstraint(
             "permission IN ('system.audit.read','system.roadmap.read','system.tenants.read',"
-            "'system.tenants.manage','system.admins.manage')",
+            "'system.tenants.manage','system.admins.manage','system.integrations.manage')",
             name="ck_system_admin_grants_permission",
         ),
         CheckConstraint("status IN ('active','revoked')", name="ck_system_admin_grants_status"),
@@ -698,3 +698,63 @@ class SystemAuditEvent(Base):
     outcome: Mapped[str] = mapped_column(String(30), nullable=False)
     details: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+
+class BionicProjectBinding(Base, TimestampMixin):
+    """Explicit administrative mapping from one Bionic project to one PEA project."""
+
+    __tablename__ = "bionic_project_bindings"
+    __table_args__ = (
+        UniqueConstraint("bionic_instance", "bionic_project_id", name="uq_bionic_project_bindings_external_project"),
+        UniqueConstraint("bionic_instance", "tenant_id", "project_id", name="uq_bionic_project_bindings_pea_project"),
+        UniqueConstraint("id", "tenant_id", "project_id", name="uq_bionic_project_bindings_parent"),
+        CheckConstraint("length(trim(bionic_instance)) BETWEEN 1 AND 100", name="ck_bionic_project_bindings_instance"),
+        CheckConstraint("bionic_project_id > 0", name="ck_bionic_project_bindings_project_id"),
+        CheckConstraint("status IN ('active','disabled')", name="ck_bionic_project_bindings_status"),
+        ForeignKeyConstraint(["tenant_id", "project_id"], ["projects.tenant_id", "projects.id"], name="fk_bionic_project_bindings_pea_project", ondelete="RESTRICT"),
+        ForeignKeyConstraint(["created_by"], ["users.id"], name="fk_bionic_project_bindings_creator", ondelete="RESTRICT"),
+        Index("ix_bionic_project_bindings_pea_project", "tenant_id", "project_id", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    bionic_instance: Mapped[str] = mapped_column(String(100), nullable=False)
+    bionic_project_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    tenant_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    project_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    created_by: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+
+
+class DelegationGrant(Base):
+    """Revocable, one-time-issued capability for one scheduled Bionic task."""
+
+    __tablename__ = "delegation_grants"
+    __table_args__ = (
+        UniqueConstraint("token_hash", name="uq_delegation_grants_token_hash"),
+        CheckConstraint("length(token_hash) = 64 AND translate(token_hash, '0123456789abcdef', '') = ''", name="ck_delegation_grants_token_hash"),
+        CheckConstraint("operation = 'search'", name="ck_delegation_grants_operation"),
+        CheckConstraint("status IN ('active','revoked','expired')", name="ck_delegation_grants_status"),
+        CheckConstraint("expires_at > created_at", name="ck_delegation_grants_expiry"),
+        CheckConstraint("status <> 'revoked' OR revoked_at IS NOT NULL", name="ck_delegation_grants_revoked_timestamp"),
+        UniqueConstraint("id", "tenant_id", "project_id", name="uq_delegation_grants_parent"),
+        ForeignKeyConstraint(["binding_id", "tenant_id", "project_id"], ["bionic_project_bindings.id", "bionic_project_bindings.tenant_id", "bionic_project_bindings.project_id"], name="fk_delegation_grants_binding_project", ondelete="RESTRICT"),
+        ForeignKeyConstraint(["tenant_id", "owner_user_id"], ["memberships.tenant_id", "memberships.user_id"], name="fk_delegation_grants_owner_membership", ondelete="RESTRICT"),
+        Index("ix_delegation_grants_owner_status", "tenant_id", "project_id", "owner_user_id", "status"),
+        Index("ix_delegation_grants_binding_task", "binding_id", "bionic_task_id", "status"),
+        Index("ix_delegation_grants_expiry", "expires_at", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    binding_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    tenant_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    project_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    owner_user_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    bionic_task_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    operation: Mapped[str] = mapped_column(String(30), nullable=False, default="search")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
