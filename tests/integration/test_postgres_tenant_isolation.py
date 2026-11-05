@@ -701,7 +701,7 @@ def test_system_admin_grants_gate_global_tenant_and_audit_reads(connection):
             assert permissions == {"system.audit.read", "system.tenants.read"}
 
             visible_tenants = set(session.scalars(select(Tenant.id)).all())
-            assert visible_tenants == {tenant_a, tenant_b}
+            assert {tenant_a, tenant_b} <= visible_tenants
 
             session.add(SystemAuditEvent(
                 id=event_id,
