@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import and_, func, select, update
 from sqlalchemy.orm import Session
 
-from app.api.auth import Principal, get_current_principal
+from app.api.auth import AuthenticatedIdentity, Principal, get_current_identity, get_current_principal
 from app.api.dependencies import get_document_upload_service
 from app.api.schemas import (
     ChatMessageCreate,
@@ -36,6 +36,7 @@ from app.api.schemas import (
     SearchResult,
     SessionRead,
     SourceFragmentRead,
+    TenantMembershipRead,
     TenantRead,
 )
 from app.llm.lm_studio import LMStudioConfig, LMStudioProvider
@@ -55,6 +56,7 @@ from app.storage.models import (
     ProcessingRun,
     Review,
     SourceFragment,
+    Membership,
     User,
 )
 from app.storage.services import (
@@ -89,6 +91,28 @@ def get_session_info(
         displayName=user.display_name or user.login,
         tenantId=principal.tenant_id,
     )
+
+
+@router.get("/tenants", response_model=list[TenantMembershipRead])
+def list_current_user_tenants(
+    identity: AuthenticatedIdentity = Depends(get_current_identity),
+    session: Session = Depends(get_session),
+):
+    """List only active tenants the verified identity may select."""
+    rows = session.execute(
+        select(Tenant.id, Tenant.name, Membership.role)
+        .join(Membership, Membership.tenant_id == Tenant.id)
+        .where(
+            Membership.user_id == identity.user_id,
+            Membership.status == "active",
+            Tenant.status == "active",
+        )
+        .order_by(Tenant.name, Tenant.id)
+    ).all()
+    return [
+        TenantMembershipRead(id=tenant_id, name=name, role=role)
+        for tenant_id, name, role in rows
+    ]
 
 
 @router.get("/projects", response_model=list[ProjectRead])
