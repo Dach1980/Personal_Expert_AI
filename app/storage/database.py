@@ -29,6 +29,14 @@ def _default_session_factory() -> sessionmaker[Session]:
     return build_session_factory()
 
 
+def set_user_context(session: Session, user_id: UUID) -> None:
+    """Set transaction-local RLS identity after verified ExternalIdentity resolution."""
+    session.execute(
+        text("SELECT set_config('app.user_id', :user_id, true)"),
+        {"user_id": str(user_id)},
+    )
+
+
 def set_tenant_context(session: Session, tenant_id: UUID) -> None:
     """Set transaction-local PostgreSQL RLS context from a trusted principal."""
     session.execute(
@@ -49,4 +57,4 @@ def get_session() -> Generator[Session, None, None]:
             yield session
 
 
-__all__ = ["Base", "build_engine", "build_session_factory", "get_session", "get_session_factory", "set_tenant_context"]
+__all__ = ["Base", "build_engine", "build_session_factory", "get_session", "get_session_factory", "set_tenant_context", "set_user_context"]
