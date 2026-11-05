@@ -46,6 +46,17 @@ def test_delegation_grants_are_project_bound_and_revocable() -> None:
     }
 
     assert "fk_delegation_grants_binding_project" in foreign_keys
+    assert foreign_keys["fk_delegation_grants_binding_project"].column_keys == [
+        "binding_id", "tenant_id", "project_id"
+    ]
+    assert [
+        element.target_fullname
+        for element in foreign_keys["fk_delegation_grants_binding_project"].elements
+    ] == [
+        "bionic_project_bindings.id",
+        "bionic_project_bindings.tenant_id",
+        "bionic_project_bindings.project_id",
+    ]
     assert "fk_delegation_grants_owner_membership" in foreign_keys
     assert "uq_delegation_grants_token_hash" in unique_names
     assert {
