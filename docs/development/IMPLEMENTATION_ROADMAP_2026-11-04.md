@@ -42,7 +42,7 @@ PEA остаётся единственным владельцем доменн�
 - Bionic fork уже содержит server-side PEA Adapter routes для session/projects/conversations/SSE/documents/processing/source fragments/artifacts/reviews/findings/evidence и JWT extractor; это подтверждено исходниками/README, но не live runtime. Private network routing и реальный gateway flow не подтверждены.
 - Переключение tenant не реализовано как полный пользовательский workflow; нельзя считать его готовым только потому, что API токен содержит tenant context.
 - Развернутый Bionic image пока ссылается на upstream image, а не fork-specific image. До runtime UAT требуется собрать и проверить fork image.
-- PEA Retrieval Tool для Bionic Agent Runtime и grounded answers с citations ещё требуется реализовать; наличие SourceFragment API/adapter route само по себе не является retrieval tool.
+- PEA Retrieval Tool для Bionic Agent Runtime и grounded answers с citations ещё требуется реализовать; наличие lexical SourceFragment API и Bionic proxy route само по себе не является runtime tool.
 - LM Studio inference, embeddings, tool calling, streaming и производительность не проверены без локальной модели.
 - Реальная загрузка/обработка документов и просмотр artifacts требуют runtime E2E.
 
