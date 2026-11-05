@@ -166,12 +166,12 @@ A user may read only their own system grant rows for /admin/me. A system audit e
 
 ## 6. Implementation order
 
-1. Add models and Alembic migration for system grants and system audit events; add RLS/privilege tests.
-2. Implement identity-only authentication context and membership discovery; preserve legacy tenant claim compatibility.
-3. Implement selected-tenant validation and X-Tenant-ID; add cross-tenant negative tests.
-4. Add system-admin permission dependencies and read-only API endpoints.
-5. Update OpenAPI/API contract docs and integration status.
-6. Integrate Web tenant selector and protected Audit & Roadmap only after backend contracts and tests pass.
-7. Update Bionic adapter to forward selected tenant selector while retaining independent token validation; add adapter contract tests.
+1. [x] Add SystemAdminGrant and SystemAuditEvent ORM models, Alembic migration, separate RLS policies and metadata unit tests. PostgreSQL CI migration/schema parity and full test gates are running; do not mark the gate passed until the latest main commit is green.
+2. [ ] Implement identity-only authentication context and membership discovery; preserve legacy tenant claim compatibility.
+3. [ ] Implement selected-tenant validation and X-Tenant-ID; add cross-tenant negative tests.
+4. [ ] Add system-admin permission dependencies and read-only API endpoints.
+5. [ ] Update OpenAPI/API contract docs and integration status.
+6. [ ] Integrate Web tenant selector and protected Audit & Roadmap only after backend contracts and tests pass.
+7. [ ] Update Bionic adapter to forward selected tenant selector while retaining independent token validation; add adapter contract tests.
 
 No frontend-only admin visibility or tenant switch is accepted as complete until the corresponding PEA endpoint and negative authorization tests pass.
