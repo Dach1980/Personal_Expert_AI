@@ -501,6 +501,7 @@ def test_keycloak_principal_switches_between_active_tenants_without_jwt_tenant_c
         ):
             set_tenant_context(session, tenant_id)
             session.add(Tenant(id=tenant_id, name=tenant_name, status="active"))
+            session.flush()
             if role is not None:
                 session.add(
                     Membership(
@@ -508,26 +509,36 @@ def test_keycloak_principal_switches_between_active_tenants_without_jwt_tenant_c
                         role=role, status="active",
                     )
                 )
+                session.flush()
+            if tenant_id == tenant_a:
+                session.add(
+                    Project(
+                        id=project_a, tenant_id=tenant_a, name="Tenant A project",
+                        status="active", project_metadata={},
+                    )
+                )
+                session.flush()
+                session.add(
+                    ProjectMembership(
+                        id=uuid4(), tenant_id=tenant_a, project_id=project_a,
+                        user_id=user_id, role="engineer", status="active",
+                    )
+                )
+                session.flush()
+            elif tenant_id == tenant_b:
+                session.add(
+                    Project(
+                        id=project_b, tenant_id=tenant_b, name="Tenant B project",
+                        status="active", project_metadata={},
+                    )
+                )
+                session.flush()
         session.add(
             ExternalIdentity(
                 id=uuid4(), issuer=issuer, subject=subject,
                 user_id=user_id, status="active",
             )
         )
-        session.add_all([
-            Project(
-                id=project_a, tenant_id=tenant_a, name="Tenant A project",
-                status="active", project_metadata={},
-            ),
-            Project(
-                id=project_b, tenant_id=tenant_b, name="Tenant B project",
-                status="active", project_metadata={},
-            ),
-            ProjectMembership(
-                id=uuid4(), tenant_id=tenant_a, project_id=project_a,
-                user_id=user_id, role="engineer", status="active",
-            ),
-        ])
 
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     now = datetime.now(UTC)
