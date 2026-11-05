@@ -114,10 +114,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute("DROP POLICY IF EXISTS system_audit_events_actor_insert ON system_audit_events")
+    op.execute("DROP POLICY IF EXISTS system_audit_events_admin_read ON system_audit_events")
+    op.execute("DROP POLICY IF EXISTS system_admin_grants_self_read ON system_admin_grants")
     for table in ("system_audit_events", "system_admin_grants"):
-        op.execute(f"DROP POLICY IF EXISTS system_audit_events_actor_insert ON {table}") if table == "system_audit_events" else None
-        op.execute(f"DROP POLICY IF EXISTS system_audit_events_admin_read ON {table}") if table == "system_audit_events" else None
-        op.execute(f"DROP POLICY IF EXISTS system_admin_grants_self_read ON {table}") if table == "system_admin_grants" else None
         op.execute(f"ALTER TABLE {table} NO FORCE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY")
     op.drop_index("ix_system_audit_events_target", table_name="system_audit_events")
