@@ -29,6 +29,7 @@ def signing_keys(monkeypatch):
             return Key()
 
     monkeypatch.setattr(auth, "_jwks_client", lambda _url: Client())
+    monkeypatch.setattr(auth, "set_user_context", lambda _session, _user_id: None)
     monkeypatch.setattr(auth, "set_tenant_context", lambda _session, _tenant_id: None)
     return private_key
 
@@ -101,7 +102,8 @@ def test_principal_requires_provisioned_identity_and_active_membership(signing_k
 
     principal = auth.get_current_principal(
         credentials=credentials,
-        session=Session([identity, user, tenant, membership]),
+        session=Session([identity, user, membership, tenant]),
+        x_tenant_id=None,
     )
 
     assert principal.user_id == user_id
@@ -154,7 +156,22 @@ def test_principal_rejects_inactive_tenant(signing_keys):
     with pytest.raises(HTTPException) as error:
         auth.get_current_principal(
             credentials=credentials,
-            session=Session([identity, user, tenant, membership]),
+            session=Session([identity, user, membership, tenant]),
+            x_tenant_id=None,
         )
 
     assert error.value.status_code == 401
+
+
+def test_keycloak_identity_token_does_not_require_legacy_tenant_claim(signing_keys):
+    now = datetime.now(UTC)
+    claims = {
+        "iss": "https://sso.example.test/realms/pea",
+        "aud": "pea-api",
+        "sub": "keycloak-subject-123",
+        "iat": now,
+        "exp": now + timedelta(minutes=5),
+    }
+    token = jwt.encode(claims, signing_keys, algorithm="RS256")
+    verified = auth._decode_keycloak_token(token)
+    assert "tenant_id" not in verified
