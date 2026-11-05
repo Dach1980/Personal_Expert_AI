@@ -145,6 +145,45 @@ class KnowledgeItemRead(BaseModel):
     updated_at: datetime
 
 
+class SearchFilters(BaseModel):
+    document_types: list[str] = Field(default_factory=list, max_length=20)
+    version_state: str = Field(default="current", pattern="^(current|all)$")
+
+
+class SearchRequest(BaseModel):
+    query: str = Field(min_length=2, max_length=1000)
+    top_k: int = Field(default=10, ge=1, le=50)
+    filters: SearchFilters = Field(default_factory=SearchFilters)
+
+    @field_validator("query")
+    @classmethod
+    def query_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if len(value) < 2:
+            raise ValueError("Search query must contain at least two non-space characters")
+        return value
+
+
+class SearchResult(BaseModel):
+    fragment_id: UUID
+    document_id: UUID
+    document_version_id: UUID
+    document_title: str
+    document_type: str | None
+    original_filename: str
+    fragment_type: str
+    locator: dict[str, object]
+    excerpt: str
+    content_hash: str
+
+
+class SearchResponse(BaseModel):
+    query: str
+    retrieval_mode: str = "lexical"
+    results: list[SearchResult]
+    truncated: bool = False
+
+
 class ReviewCreate(BaseModel):
     title: str = Field(min_length=1, max_length=300)
     document_version_id: UUID | None = None
