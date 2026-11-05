@@ -1,0 +1,19 @@
+{
+  "clientId": "pea-bionic-worker",
+  "name": "PEA Bionic Scheduled Retrieval Worker",
+  "description": "Confidential workload identity for Bionic scheduled retrieval. Uses client credentials only; no user impersonation or direct user login.",
+  "enabled": true,
+  "protocol": "openid-connect",
+  "bearerOnly": false,
+  "publicClient": false,
+  "standardFlowEnabled": false,
+  "implicitFlowEnabled": false,
+  "directAccessGrantsEnabled": false,
+  "serviceAccountsEnabled": true,
+  "authorizationServicesEnabled": false,
+  "clientAuthenticatorType": "client-secret",
+  "frontchannelLogout": false,
+  "attributes": {
+    "client.use.lightweight.access.token.enabled": "false"
+  }
+}
