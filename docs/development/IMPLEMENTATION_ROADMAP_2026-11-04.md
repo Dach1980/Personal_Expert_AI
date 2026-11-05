@@ -1,6 +1,6 @@
 # Personal Expert AI — межрепозиторный roadmap
 
-Дата: 2026-11-04  
+Дата актуализации: 2026-11-05  
 Статус: план реализации, актуализируемый по фактическим CI и runtime результатам.
 
 ## Репозитории и ответственность
@@ -32,17 +32,17 @@ PEA остаётся единственным владельцем доменн�
 
 - PEA: PostgreSQL 16 migration/schema/integration gates, tenant/project data isolation checks, API/domain tests и lint проходят на проверенных CI revisions.
 - Bionic: Rust formatting, compilation, tests, Agent Runtime auth/dialogue tests и web assets build проходят на проверенной CI revision.
-- Web: TypeScript/Vite build и GitHub Pages deployment проходили на проверенной CI revision; исходники содержат PKCE, session/projects/conversations/SSE и DocumentWorkspace.
-- Web branding fix: root `assets/` назначен Vite `publicDir`; Sidebar, Footer и favicon переведены на `${BASE_URL}logo.svg`; Pages workflow проверяет logo asset до публикации. Ожидается успешный post-change workflow и подтверждение опубликованного URL.
+- Web: TypeScript/Vite build и GitHub Pages deployment проходили на предыдущей проверенной CI revision. Последние изменения OIDC/SSE/citations/npm lockfile workflow находятся в `main`, но их новый Actions run пока не подтверждён.
+- Web branding fix: root `assets/` назначен Vite `publicDir`; Sidebar, Footer и favicon используют `${BASE_URL}logo.svg`; workflow проверяет logo asset до и после публикации. Новые OIDC проверки (RS256/JWKS, issuer/audience/expiry/nonce, single-flight refresh, prompt=none session restore), SSE parser/citation UI, unit tests, npm ci bootstrap и GitHub Variables wiring добавлены в Web. Latest Web implementation status: [2026-11-05](https://github.com/Dach1980/Personal_Expert_AI_Web/blob/main/docs/IMPLEMENTATION_STATUS_2026-11-05.md).
 
 ### Не принято как runtime-ready
 
 - Keycloak realm/client/scope configuration ещё нужно применить и проверить в фактическом Stack.
 - Browser login/logout и token refresh не прошли live E2E.
-- Trusted gateway Bionic → PEA и private network routing не подтверждены реальным развертыванием.
+- Bionic fork уже содержит server-side PEA Adapter routes для session/projects/conversations/SSE/documents/processing/source fragments/artifacts/reviews/findings/evidence и JWT extractor; это подтверждено исходниками/README, но не live runtime. Private network routing и реальный gateway flow не подтверждены.
 - Переключение tenant не реализовано как полный пользовательский workflow; нельзя считать его готовым только потому, что API токен содержит tenant context.
 - Развернутый Bionic image пока ссылается на upstream image, а не fork-specific image. До runtime UAT требуется собрать и проверить fork image.
-- PEA retrieval tool для Bionic Agent Runtime и grounded answers с citations ещё требуется реализовать.
+- PEA Retrieval Tool для Bionic Agent Runtime и grounded answers с citations ещё требуется реализовать; наличие SourceFragment API/adapter route само по себе не является retrieval tool.
 - LM Studio inference, embeddings, tool calling, streaming и производительность не проверены без локальной модели.
 - Реальная загрузка/обработка документов и просмотр artifacts требуют runtime E2E.
 
