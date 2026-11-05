@@ -65,9 +65,10 @@ from app.storage.models import (
     ProcessingArtifact,
     ProcessingRun,
     Review,
-    SourceFragment,
     Membership,
+    SourceFragment,
     SystemAuditEvent,
+    Tenant,
     User,
 )
 from app.storage.services import (
