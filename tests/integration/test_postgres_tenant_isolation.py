@@ -7,6 +7,7 @@ from uuid import uuid4
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
+from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import create_engine, select, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
@@ -552,10 +553,11 @@ def test_keycloak_principal_switches_between_active_tenants_without_jwt_tenant_c
             assert principal_a.membership_role == "member"
             assert principal_b.tenant_id == tenant_b
             assert principal_b.membership_role == "tenant_admin"
-            with pytest.raises(Exception):
+            with pytest.raises(HTTPException) as denied:
                 auth.get_current_principal(
                     credentials, session, x_tenant_id=str(tenant_forbidden)
                 )
+            assert denied.value.status_code == 404
     finally:
         factory.kw["bind"].dispose()
         rls_factory.kw["bind"].dispose()
