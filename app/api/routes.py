@@ -9,7 +9,15 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import and_, func, select, update
 from sqlalchemy.orm import Session
 
-from app.api.auth import (\n    AuthenticatedIdentity,\n    Principal,\n    SystemAdminPrincipal,\n    get_current_identity,\n    get_current_principal,\n    get_current_system_admin,\n    require_system_permission,\n)
+from app.api.auth import (
+    AuthenticatedIdentity,
+    Principal,
+    SystemAdminPrincipal,
+    get_current_identity,
+    get_current_principal,
+    get_current_system_admin,
+    require_system_permission,
+)
 from app.api.dependencies import get_document_upload_service
 from app.api.schemas import (
     ChatMessageCreate,
@@ -35,6 +43,8 @@ from app.api.schemas import (
     SearchResponse,
     SearchResult,
     SessionRead,
+    SystemAdminMeRead,
+    SystemAuditEventRead,
     SourceFragmentRead,
     TenantMembershipRead,
     TenantRead,
@@ -57,6 +67,7 @@ from app.storage.models import (
     Review,
     SourceFragment,
     Membership,
+    SystemAuditEvent,
     User,
 )
 from app.storage.services import (
