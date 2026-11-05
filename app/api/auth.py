@@ -34,7 +34,7 @@ class Principal:
 
     user_id: UUID
     tenant_id: UUID
-    membership_role: str
+    membership_role: str = "member"
 
 
 @dataclass(frozen=True)
