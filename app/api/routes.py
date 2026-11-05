@@ -4,12 +4,12 @@ import os
 from urllib.parse import quote
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import and_, func, select, update
 from sqlalchemy.orm import Session
 
-from app.api.auth import AuthenticatedIdentity, Principal, get_current_identity, get_current_principal
+from app.api.auth import (\n    AuthenticatedIdentity,\n    Principal,\n    SystemAdminPrincipal,\n    get_current_identity,\n    get_current_principal,\n    get_current_system_admin,\n    require_system_permission,\n)
 from app.api.dependencies import get_document_upload_service
 from app.api.schemas import (
     ChatMessageCreate,
@@ -113,6 +113,55 @@ def list_current_user_tenants(
         TenantMembershipRead(id=tenant_id, name=name, role=role)
         for tenant_id, name, role in rows
     ]
+
+
+@router.get("/admin/me", response_model=SystemAdminMeRead, tags=["admin"])
+def get_system_admin_info(
+    admin: SystemAdminPrincipal = Depends(get_current_system_admin),
+):
+    """Return the verified caller's effective PEA system permissions."""
+    return SystemAdminMeRead(user_id=admin.user_id, permissions=list(admin.permissions))
+
+
+@router.get(
+    "/admin/audit-events",
+    response_model=list[SystemAuditEventRead],
+    tags=["admin"],
+)
+def list_system_audit_events(
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    tenant_id: UUID | None = None,
+    action: str | None = Query(default=None, min_length=1, max_length=120),
+    outcome: str | None = Query(default=None, pattern="^(success|denied|failure)$"),
+    identity: AuthenticatedIdentity = Depends(require_system_permission("system.audit.read")),
+    session: Session = Depends(get_session),
+):
+    """List global append-only audit events for explicitly authorized admins."""
+    statement = select(SystemAuditEvent)
+    if tenant_id is not None:
+        statement = statement.where(SystemAuditEvent.tenant_id == tenant_id)
+    if action is not None:
+        statement = statement.where(SystemAuditEvent.action == action)
+    if outcome is not None:
+        statement = statement.where(SystemAuditEvent.outcome == outcome)
+    return list(
+        session.scalars(
+            statement.order_by(
+                SystemAuditEvent.created_at.desc(),
+                SystemAuditEvent.id.desc(),
+            ).limit(limit).offset(offset)
+        )
+    )
+
+
+@router.get("/admin/tenants", response_model=list[TenantRead], tags=["admin"])
+def list_all_tenants(
+    identity: AuthenticatedIdentity = Depends(require_system_permission("system.tenants.read")),
+    session: Session = Depends(get_session),
+):
+    """List platform tenants only for users with the dedicated system permission."""
+    return list(session.scalars(select(Tenant).order_by(Tenant.name, Tenant.id)))
 
 
 @router.get("/projects", response_model=list[ProjectRead])
