@@ -339,7 +339,7 @@ class AuditEvent(Base):
     target_id: Mapped[UUID | None] = mapped_column(Uuid)
     request_id: Mapped[str | None] = mapped_column(String(100))
     outcome: Mapped[str] = mapped_column(String(30), nullable=False, default="success")
-    details: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, nullable=False, default=dict)
+    details: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
