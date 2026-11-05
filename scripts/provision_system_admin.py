@@ -20,6 +20,7 @@ PERMISSIONS = (
     "system.tenants.read",
     "system.tenants.manage",
     "system.admins.manage",
+    "system.integrations.manage",
 )
 
 
