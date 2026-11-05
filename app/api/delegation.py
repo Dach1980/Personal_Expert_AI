@@ -37,6 +37,7 @@ from app.storage.models import (
     Membership,
     Project,
     SystemAuditEvent,
+    Tenant,
     User,
 )
 from app.storage.services import ProjectService, ResourceNotFoundError
@@ -134,6 +135,12 @@ def create_bionic_project_binding(
     """Create an explicit mapping; callers cannot choose the Bionic instance."""
     instance = _bionic_instance()
     set_tenant_context(session, payload.tenant_id)
+    tenant = session.scalar(
+        select(Tenant).where(
+            Tenant.id == payload.tenant_id,
+            Tenant.status == "active",
+        )
+    )
     project = session.scalar(
         select(Project).where(
             Project.tenant_id == payload.tenant_id,
@@ -141,7 +148,7 @@ def create_bionic_project_binding(
             Project.status == "active",
         )
     )
-    if project is None:
+    if tenant is None or project is None:
         raise HTTPException(status_code=404, detail="PEA project not found")
 
     existing = session.scalar(
