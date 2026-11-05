@@ -92,7 +92,7 @@ UploadOperation хранит durable state machine и idempotency key. Посл�
 Подробности: [DOCUMENT_UPLOAD_AND_RECOVERY.md](DOCUMENT_UPLOAD_AND_RECOVERY.md).
 
 ### Поиск и знания
-- POST /api/v1/projects/{project_id}/search
+- POST /api/v1/projects/{project_id}/search (legacy target path; tenant-scoped implemented route is `POST /api/v1/tenants/{tenant_id}/projects/{project_id}/search`)
 - GET /api/v1/projects/{project_id}/knowledge
 - GET /api/v1/knowledge-items/{item_id}
 - GET /api/v1/source-fragments/{fragment_id}
@@ -126,6 +126,8 @@ UploadOperation хранит durable state machine и idempotency key. Посл�
 - GET /api/v1/admin/jobs
 - GET /api/v1/admin/audit
 - GET/PATCH /api/v1/admin/policies
+
+Search endpoint возвращает fragment/document/version identifiers, title, filename, locator, excerpt и content_hash; retrieval_mode=`lexical`. Он не выполняет embeddings/vector search, reranking или KnowledgeItem graph traversal. Результаты поиска — кандидаты, не подтверждённые доказательства. Bionic Agent Runtime tool, ACL-before-prompt context assembly и validation citations ещё должны быть реализованы.
 
 Маршруты — целевой контракт, а не заявление, что все endpoints уже реализованы.
 
