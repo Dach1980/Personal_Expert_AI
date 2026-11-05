@@ -17,7 +17,11 @@ def test_session_endpoint_returns_only_verified_principal_profile():
     )
 
     result = get_session_info(
-        identity=AuthenticatedIdentity(user_id=user_id),
+        identity=AuthenticatedIdentity(
+            user_id=user_id,
+            issuer="https://sso.example.test/realms/pea",
+            subject="keycloak-subject",
+        ),
         session=session,
     )
 
