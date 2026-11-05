@@ -96,6 +96,14 @@ class TenantRead(BaseModel):
     status: str
 
 
+class TenantMembershipRead(BaseModel):
+    """A tenant the authenticated identity is actively allowed to select."""
+
+    id: UUID
+    name: str
+    role: str
+
+
 
 class DocumentVersionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
