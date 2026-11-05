@@ -160,7 +160,7 @@ def test_principal_rejects_inactive_tenant(signing_keys):
             x_tenant_id=None,
         )
 
-    assert error.value.status_code == 401
+    assert error.value.status_code == 404
 
 
 def test_keycloak_identity_token_does_not_require_legacy_tenant_claim(signing_keys):
