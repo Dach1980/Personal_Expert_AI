@@ -227,3 +227,37 @@ def test_keycloak_identity_token_does_not_require_legacy_tenant_claim(signing_ke
     token = jwt.encode(claims, signing_keys, algorithm="RS256")
     verified = auth._decode_keycloak_token(token)
     assert "tenant_id" not in verified
+
+
+
+def test_workload_auth_accepts_only_the_configured_confidential_client(signing_keys, monkeypatch):
+    monkeypatch.setenv("PEA_WORKLOAD_CLIENT_ID", "pea-bionic-worker")
+    token = make_token(signing_keys, azp="pea-bionic-worker")
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+
+    principal = auth.get_current_workload(credentials=credentials)
+
+    assert principal.client_id == "pea-bionic-worker"
+    assert principal.subject == "keycloak-subject-123"
+
+
+def test_workload_auth_rejects_another_client(signing_keys, monkeypatch):
+    monkeypatch.setenv("PEA_WORKLOAD_CLIENT_ID", "pea-bionic-worker")
+    token = make_token(signing_keys, azp="some-other-client")
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+
+    with pytest.raises(HTTPException) as error:
+        auth.get_current_workload(credentials=credentials)
+
+    assert error.value.status_code == 401
+
+
+def test_workload_auth_fails_closed_when_client_is_not_configured(signing_keys, monkeypatch):
+    monkeypatch.delenv("PEA_WORKLOAD_CLIENT_ID", raising=False)
+    token = make_token(signing_keys, azp="pea-bionic-worker")
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+
+    with pytest.raises(HTTPException) as error:
+        auth.get_current_workload(credentials=credentials)
+
+    assert error.value.status_code == 503
