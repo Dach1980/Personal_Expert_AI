@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.api import auth
+from app.api.routes import get_session_info
 
 
 @pytest.fixture
@@ -108,6 +109,53 @@ def test_principal_requires_provisioned_identity_and_active_membership(signing_k
 
     assert principal.user_id == user_id
     assert principal.tenant_id == tenant_id
+
+
+def test_principal_accepts_selected_tenant_without_legacy_tenant_claim(signing_keys):
+    tenant_id = uuid4()
+    user_id = uuid4()
+    token = make_token(signing_keys, tenant_id=None)
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+
+    class Session:
+        def __init__(self, rows):
+            self.rows = iter(rows)
+
+        def scalar(self, _statement):
+            return next(self.rows)
+
+    identity = SimpleNamespace(user_id=user_id)
+    user = SimpleNamespace(id=user_id)
+    membership = SimpleNamespace(status="active", role="admin")
+    tenant = SimpleNamespace(id=tenant_id, status="active")
+
+    principal = auth.get_current_principal(
+        credentials=credentials,
+        session=Session([identity, user, membership, tenant]),
+        x_tenant_id=str(tenant_id),
+    )
+
+    assert principal.user_id == user_id
+    assert principal.tenant_id == tenant_id
+    assert principal.membership_role == "admin"
+
+
+def test_session_endpoint_returns_identity_without_selecting_tenant():
+    user_id = uuid4()
+    user = SimpleNamespace(
+        id=user_id,
+        status="active",
+        display_name="Test User",
+        login="test-user",
+    )
+
+    result = get_session_info(
+        identity=SimpleNamespace(user_id=user_id),
+        session=Session([user]),
+    )
+
+    assert result.user_id == user_id
+    assert result.tenant_id is None
 
 
 def test_principal_rejects_missing_external_identity(signing_keys):
