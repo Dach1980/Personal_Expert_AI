@@ -82,13 +82,24 @@ Single-user prototype не считается безопасным multi-user п
 
 Backend устанавливает контекст через `set_config('app.tenant_id', ..., true)` в текущей транзакции. Значение должно поступать только из проверенного principal, а не из тела запроса. Сессия запроса оборачивается в транзакцию: успешный запрос фиксируется, исключение приводит к rollback. Transaction-local context сбрасывается при завершении транзакции.
 
-HTTP API использует подписанный JWT от доверенного identity provider. Проверяются подпись HS256, issuer, audience, exp, iat, sub и tenant_id. Обязательные настройки:
-- `JWT_SECRET` — секрет не короче 32 символов;
-- `JWT_ISSUER` — ожидаемый issuer;
-- `JWT_AUDIENCE` — ожидаемая audience.
+HTTP API использует подписанный JWT от доверенного Keycloak identity provider. Реализация проверяет подпись RS256 через JWKS, issuer, audience, exp, iat, sub и обязательный tenant_id для текущего legacy active-tenant flow. Настройки:
+- `OIDC_ISSUER` — ожидаемый issuer;
+- `OIDC_AUDIENCE` — audience PEA API;
+- `OIDC_JWKS_URL` — доверенный JWKS endpoint.
 
-Токен должен содержать UUID пользователя в `sub` и UUID tenant в `tenant_id`. Приложение не выдаёт токены и не реализует регистрацию/пароли: подключение и управление identity provider остаётся отдельной эксплуатационной настройкой. Без JWT-конфигурации защищённые endpoint возвращают 503; без действительного bearer token доступ запрещён.
+Идентичность PEA разрешается по точной паре issuer + subject через ExternalIdentity; пользователь и tenant должны быть активны, membership — активным. Приложение не выдаёт токены и не реализует регистрацию/пароли. Без OIDC-конфигурации защищённые endpoint возвращают 503; без действительного bearer token доступ запрещён. Механизм multi-tenant discovery/switch описан в [SYSTEM_ADMIN_AND_TENANT_CONTEXT_DESIGN.md](SYSTEM_ADMIN_AND_TENANT_CONTEXT_DESIGN.md) и пока не считается реализованным.
 
 Runtime DB role обязана быть отдельной ролью PostgreSQL без `SUPERUSER`, без `BYPASSRLS` и не должна владеть таблицами. Миграции выполняются отдельной DDL-ролью. Использование владельца таблиц или superuser как runtime connection разрушает ожидаемую границу RLS.
 
 CI проверяет RLS под отдельной ролью `app_runtime`, не являющейся владельцем таблиц и не имеющей `BYPASSRLS`. Проверки PostgreSQL должны проходить до использования схемы в multi-user окружении.
+
+
+## 14. Системная административная авторизация и multi-tenant context (2026-11-05)
+
+Системные административные права отделяются от tenant Membership. Роли owner, tenant_admin и member не дают глобальных полномочий. Системные разрешения выдаются отдельными PEA grants и проверяются backend на каждом запросе; Keycloak roles и frontend flags не являются источником таких прав.
+
+Глобальная административная история отделяется от tenant-scoped audit_events. Новая схема grants/audit и RLS зафиксирована в [SYSTEM_ADMIN_AND_TENANT_CONTEXT_DESIGN.md](SYSTEM_ADMIN_AND_TENANT_CONTEXT_DESIGN.md). Первый слой модели и Alembic migration добавлены в main; API dependencies, membership discovery, tenant switching и runtime acceptance остаются в работе до прохождения CI и negative tests.
+
+Tenant selector (X-Tenant-ID) является только запрашиваемым контекстом. PEA должен заново проверять активное членство пользователя на каждом запросе и только после этого устанавливать transaction-local app.tenant_id. Для безопасного discovery используется отдельный app.user_id context с минимальным расширением RLS только на memberships и tenants. Все остальные tenant-owned таблицы остаются закрытыми без активного tenant context.
+
+System audit ledger проектируется append-only: runtime role может добавлять события, но не обновлять и не удалять их. Чтение глобального журнала требует активного system.audit.read grant. Grant provisioning первоначально выполняется вне публичного API с отдельным операторским контролем.
