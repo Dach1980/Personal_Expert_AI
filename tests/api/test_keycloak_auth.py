@@ -116,7 +116,7 @@ def test_principal_rejects_missing_external_identity(signing_keys):
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
 
     with pytest.raises(HTTPException) as error:
-        auth.get_current_principal(credentials=credentials, session=SessionNone())
+        auth.get_current_principal(credentials=credentials, session=SessionNone(), x_tenant_id=None)
 
     assert error.value.status_code == 401
 
