@@ -4,6 +4,7 @@ Revision ID: 0012_system_admin_audit
 """
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision = "0012_system_admin_audit"
 down_revision = "0011_chat_conversations"
@@ -48,7 +49,7 @@ def upgrade() -> None:
         sa.Column("tenant_id", sa.Uuid(), nullable=True),
         sa.Column("request_id", sa.String(length=100), nullable=True),
         sa.Column("outcome", sa.String(length=30), nullable=False),
-        sa.Column("details", sa.JSON(), server_default=sa.text("'{}'"), nullable=False),
+        sa.Column("details", postgresql.JSONB(), server_default=sa.text("'{}'::jsonb"), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.CheckConstraint(
             "outcome IN ('success','denied','failure')",
