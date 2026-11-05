@@ -599,3 +599,63 @@ def test_review_finding_evidence_tables_enforce_tenant_rls():
     finally:
         owner_factory.kw["bind"].dispose()
         app_factory.kw["bind"].dispose()
+
+
+
+def test_identity_context_discovers_only_own_tenants_without_active_tenant(connection):
+    user_id, other_user_id = uuid4(), uuid4()
+    tenant_a, tenant_b = uuid4(), uuid4()
+
+    with connection.begin():
+        connection.execute(
+            text("INSERT INTO users (id, login, status) VALUES (:id, :login, 'active'), (:other, :other_login, 'active')"),
+            {
+                "id": user_id, "login": f"identity-{user_id}@test.local",
+                "other": other_user_id, "other_login": f"identity-{other_user_id}@test.local",
+            },
+        )
+
+    with connection.begin():
+        _tenant(connection, tenant_a)
+        connection.execute(
+            text("""INSERT INTO memberships (id, tenant_id, user_id, role, status)
+                    VALUES (:id, :tenant, :user, 'member', 'active')"""),
+            {"id": uuid4(), "tenant": tenant_a, "user": user_id},
+        )
+
+    with connection.begin():
+        _tenant(connection, tenant_b)
+        connection.execute(
+            text("""INSERT INTO memberships (id, tenant_id, user_id, role, status)
+                    VALUES (:id, :tenant, :user, 'tenant_admin', 'active'),
+                           (:other_id, :tenant, :other_user, 'member', 'active')"""),
+            {
+                "id": uuid4(), "tenant": tenant_b, "user": user_id,
+                "other_id": uuid4(), "other_user": other_user_id,
+            },
+        )
+
+    with connection.begin():
+        # No app.tenant_id is set: identity context grants only self-membership
+        # discovery and the corresponding tenant names.
+        connection.execute(
+            text("SELECT set_config('app.user_id', :user_id, true)"),
+            {"user_id": str(user_id)},
+        )
+        memberships = connection.execute(
+            text("SELECT tenant_id FROM memberships ORDER BY tenant_id")
+        ).scalars().all()
+        visible_tenants = connection.execute(
+            text("SELECT id FROM tenants ORDER BY id")
+        ).scalars().all()
+        assert set(memberships) == {tenant_a, tenant_b}
+        assert set(visible_tenants) == {tenant_a, tenant_b}
+
+        # Identity context alone must not grant writes to tenant-owned rows.
+        with pytest.raises(Exception):
+            with connection.begin_nested():
+                connection.execute(
+                    text("""INSERT INTO memberships (id, tenant_id, user_id, role, status)
+                            VALUES (:id, :tenant, :user, 'member', 'active')"""),
+                    {"id": uuid4(), "tenant": tenant_a, "user": user_id},
+                )
