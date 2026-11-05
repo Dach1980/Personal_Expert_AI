@@ -75,7 +75,7 @@ The command requires an administrative `DATABASE_URL`, an explicit operator and 
 - Requires the same workload client token and the task-bound grant.
 - Body additionally includes only `query` and `top_k`; Bionic project/task and owner subject are server-derived.
 - PEA checks grant hash, status, expiry, task ID, project binding, owner subject and current PEA authorization.
-- Results preserve fragment ID, document/version identity, locator, excerpt and content hash.
+- Results preserve fragment ID, document/version identity, locator, excerpt and content hash. Bionic cites them as `[PEA:<fragment_id>]` and validates final markers against the exact fragment IDs returned during that scheduled run.
 
 ### User grant lifecycle
 
