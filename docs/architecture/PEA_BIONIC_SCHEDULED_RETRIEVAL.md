@@ -69,7 +69,7 @@ The command requires an administrative `DATABASE_URL`, an explicit operator and 
 - PEA resolves the configured Bionic instance mapping, external identity, active user, tenant membership and project membership.
 - Returns the raw grant token once. Bionic keeps it only in the current scheduled run's memory.
 
-### Delegated search
+### Grant revocation\n\n- `POST /api/v1/internal/bionic/delegation-grants/{grant_id}/revoke`\n- Requires the workload token, exact grant token, Bionic project/task and owner subject.\n- PEA verifies all bindings before revoking; expired grants transition to `expired`.\n\n### Delegated search
 
 - `POST /api/v1/internal/bionic/retrieval/search`
 - Requires the same workload client token and the task-bound grant.
@@ -103,7 +103,7 @@ Production PEA API and Keycloak token endpoints must use HTTPS unless the host i
 ## Bionic runtime behavior
 
 - The cron worker creates a PEA grant just before running a scheduled task that has a Bionic project.
-- Grant TTL is 15 minutes. The raw grant and service credentials are held in memory only; no long-lived user token or grant secret is stored in the Bionic database.
+- Grant TTL is one hour; Bionic revokes it after the scheduled run and the expiry is the fallback. The raw grant and service credentials are held in memory only; no long-lived user token or grant secret is stored in the Bionic database.
 - If PEA is not configured, the project is not bound, or the owner lacks current PEA access, the task continues without the `pea_search` tool. The tool is not registered.
 - When a trusted context exists, `pea_search` is added to that scheduled turn's tool definitions and dispatcher only.
 - The tool accepts `query` and `top_k` only. It cannot select tenant, project, task, owner, instance or grant.
