@@ -257,7 +257,7 @@ def test_system_permission_is_checked_independently():
 
     assert result == identity
     statement = session.scalar.call_args.args[0]
-    assert "system.tenants.read" in str(statement)
+    assert "system.tenants.read" in statement.compile().params.values()
 
 
 def test_missing_system_permission_is_denied():
