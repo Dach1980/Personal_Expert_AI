@@ -39,3 +39,13 @@ The proxy forwards the verified caller's access token server-to-server. It does 
 - Bionic integration docs: `8863219018d0ab8def4bb926c637a184fc8f1583`.
 
 CI statuses were not available from the repository status endpoint at the time of this report. Source changes must be treated as `NOT VERIFIED` until the respective GitHub Actions checks pass.
+
+
+## Tenant switching contract update — 2026-11-05
+
+- `GET /api/v1/session` now authenticates and returns the provisioned user identity without requiring a tenant selection; `tenantId` is nullable.
+- `GET /api/v1/tenants` remains the membership discovery endpoint and returns only active memberships visible through the caller's `app.user_id` RLS context.
+- Tenant-scoped requests use `X-Tenant-ID`; the header is only a selection request. PEA checks active membership and tenant status on every request before setting `app.tenant_id`.
+- A missing legacy `tenant_id` JWT claim is supported. If present, it remains a compatibility fallback only; it does not replace membership checks.
+- Tests now cover a token without the legacy tenant claim selecting an active membership through `X-Tenant-ID`, plus an identity-only session response.
+- CI acceptance for the latest commit and live Keycloak/Bionic/PostgreSQL E2E remain pending; the previous PostgreSQL 16 CI pass must not be attributed to these new commits.
