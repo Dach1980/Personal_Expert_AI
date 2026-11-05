@@ -150,7 +150,7 @@ def test_principal_rejects_inactive_tenant(signing_keys):
     identity = SimpleNamespace(user_id=user_id)
     user = SimpleNamespace(id=user_id)
     tenant = SimpleNamespace(id=tenant_id, status="disabled")
-    membership = SimpleNamespace(status="active")
+    membership = SimpleNamespace(status="active", role="member")
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
 
     with pytest.raises(HTTPException) as error:
