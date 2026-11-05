@@ -45,6 +45,13 @@ def set_tenant_context(session: Session, tenant_id: UUID) -> None:
     )
 
 
+def set_bionic_workload_context(session: Session) -> None:
+    """Mark a transaction as an already-authenticated Bionic workload request."""
+    session.execute(
+        text("SELECT set_config('app.bionic_workload', 'true', true)")
+    )
+
+
 def get_session_factory() -> sessionmaker[Session]:
     """Return the process-wide factory for isolated background/service transactions."""
     return _default_session_factory()
@@ -57,4 +64,4 @@ def get_session() -> Generator[Session, None, None]:
             yield session
 
 
-__all__ = ["Base", "build_engine", "build_session_factory", "get_session", "get_session_factory", "set_tenant_context", "set_user_context"]
+__all__ = ["Base", "build_engine", "build_session_factory", "get_session", "get_session_factory", "set_bionic_workload_context", "set_tenant_context", "set_user_context"]
