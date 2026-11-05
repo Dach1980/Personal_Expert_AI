@@ -49,3 +49,23 @@ CI statuses were not available from the repository status endpoint at the time o
 - A missing legacy `tenant_id` JWT claim is supported. If present, it remains a compatibility fallback only; it does not replace membership checks.
 - Tests now cover a token without the legacy tenant claim selecting an active membership through `X-Tenant-ID`, plus an identity-only session response.
 - CI acceptance for the latest commit and live Keycloak/Bionic/PostgreSQL E2E remain pending; the previous PostgreSQL 16 CI pass must not be attributed to these new commits.
+
+## Bionic scheduled retrieval delegation — source reconciliation 2026-11-06
+
+Current `main` now includes a PEA-owned delegation boundary in `app/api/delegation.py`:
+
+- System administrators with `system.integrations.manage` can create/disable explicit Bionic project → PEA tenant/project bindings. Binding creation rejects inactive tenants/projects and records a system audit event.
+- A Bionic confidential workload client authenticates with the `pea-api-context` scope and may request a task-bound grant only for a configured Bionic instance and active project binding.
+- The grant is bound to Bionic project, Bionic task, verified owner subject, PEA tenant/project and `search` operation. TTL is bounded to 60 seconds–7 days (default 1 hour).
+- PEA stores only SHA-256 of the one-time grant secret. The raw secret is returned once to the trusted Bionic worker.
+- Each delegated search rechecks grant hash/status/expiry, active Bionic binding, external owner identity, active PEA user, active tenant membership and current project access before calling the same ACL-scoped lexical search implementation.
+- Grant revocation is owner-scoped for user-issued grants; internal workload grants also have a revocation endpoint for Bionic.
+- PEA remains the authorization authority. The Bionic workload token does not itself grant document access; it can only exercise a matching active PEA grant.
+
+### Acceptance still required
+
+- Run current-HEAD PostgreSQL 16 migration/schema/RLS/full-test CI; the historical successful run `41813394892` predates the latest delegation/auth commits and must not be attributed to current HEAD.
+- Exercise the confidential client against the live Stack-managed `bionic-gpt` realm and verify the exact issuer, audience, JWKS and `pea-api-context` scope.
+- Test binding disable, grant expiry, revoke, owner deprovisioning, tenant/project membership removal, wrong Bionic project/task/owner, wrong workload client and cross-tenant/project attempts against PostgreSQL 16.
+- Verify the Bionic worker revokes grants on normal completion and TTL safely bounds abandoned tasks.
+- The scheduled-task delegation API is not yet a substitute for an interactive browser-chat delegation contract.
