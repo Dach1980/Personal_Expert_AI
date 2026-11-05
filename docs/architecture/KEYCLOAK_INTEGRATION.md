@@ -25,6 +25,24 @@ PEA will maintain an explicit external-identity mapping:
 
 A verified external identity does not automatically create a tenant, membership, project membership or owner role. Provisioning and membership grants are explicit administrative operations. A user must have an active PEA membership in the tenant named by the request/token before any tenant-scoped operation is allowed.
 
+## Delegation for scheduled/background tasks
+
+The interactive user-token path and scheduled-task authorization are separate flows. The scheduled worker does not possess the original user's Keycloak access token; a database `sub` and email are not a substitute for a signed subject token.
+
+Do not use Keycloak Legacy Token Exchange V1, direct naked impersonation, or a service account that can choose arbitrary user subjects. Standard Token Exchange V2 requires an existing subject token and cannot manufacture an arbitrary user's identity from Bionic's task row.
+
+The approved safe direction is:
+
+- Keep the existing verified user-token flow for interactive Bionic → PEA requests.
+- Use a separate confidential Bionic workload client for scheduled service authentication. Do not reuse the public `pea-web` client or the bearer-only `pea-api` audience client.
+- Create a PEA-owned, revocable delegation grant when an authenticated user authorizes a scheduled task. Bind it to the task owner, Bionic project/task, explicit PEA tenant/project mapping and the permitted operation.
+- At execution, Bionic authenticates as its workload and presents the grant identifier. PEA verifies the workload identity, grant lifecycle, task/mapping consistency and the user's current PEA identity, tenant membership and project permission before issuing an immutable retrieval context.
+- The grant identifier is not itself authorization and must never be exposed as a model-controlled tool argument. Missing, expired, revoked or mismatched grants fail closed.
+
+Keycloak Standard Token Exchange V2 may be used where a real user subject token exists and a narrower target audience/scope is needed. It is not the scheduled-task delegation mechanism.
+
+The repository-level findings and implementation sequence are recorded in [Keycloak delegation audit 2026-11-05](KEYCLOAK_DELEGATION_AUDIT_2026-11-05.md). The actual Stack-managed Keycloak version and live realm/client settings still require runtime inspection.
+
 ## Token validation requirements in PEA
 
 The PEA API must validate Keycloak access tokens using the realm's published JWKS and an explicit asymmetric algorithm allowlist (initially RS256). Validation must check:
