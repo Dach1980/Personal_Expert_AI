@@ -480,24 +480,30 @@ def test_document_read_service_isolates_projects_within_one_tenant(connection):
 
 
 
-def test_keycloak_principal_sets_rls_context_before_membership_lookup(monkeypatch):
-    """A valid identity must resolve through the restricted app role with RLS enabled."""
-    tenant_id, user_id = uuid4(), uuid4()
+def test_keycloak_principal_switches_between_active_tenants_without_jwt_tenant_claim(monkeypatch):
+    """One verified identity can select only its own active tenants under RLS."""
+    tenant_a, tenant_b, tenant_forbidden, user_id = uuid4(), uuid4(), uuid4(), uuid4()
     issuer = "https://sso.integration.test/realms/pea"
     subject = f"subject-{uuid4()}"
     factory = build_session_factory(OWNER_DATABASE_URL or DATABASE_URL)
 
     with factory() as session, session.begin():
-        set_tenant_context(session, tenant_id)
-        session.add(Tenant(id=tenant_id, name="OIDC integration tenant", status="active"))
         session.add(User(id=user_id, login=f"oidc-{user_id}@test.local", status="active"))
         session.flush()
-        session.add(
-            Membership(
-                id=uuid4(), tenant_id=tenant_id, user_id=user_id,
-                role="member", status="active",
-            )
-        )
+        for tenant_id, tenant_name, role in (
+            (tenant_a, "OIDC tenant A", "member"),
+            (tenant_b, "OIDC tenant B", "tenant_admin"),
+            (tenant_forbidden, "OIDC tenant forbidden", None),
+        ):
+            set_tenant_context(session, tenant_id)
+            session.add(Tenant(id=tenant_id, name=tenant_name, status="active"))
+            if role is not None:
+                session.add(
+                    Membership(
+                        id=uuid4(), tenant_id=tenant_id, user_id=user_id,
+                        role=role, status="active",
+                    )
+                )
         session.add(
             ExternalIdentity(
                 id=uuid4(), issuer=issuer, subject=subject,
@@ -512,7 +518,6 @@ def test_keycloak_principal_sets_rls_context_before_membership_lookup(monkeypatc
             "iss": issuer,
             "aud": "pea-api",
             "sub": subject,
-            "tenant_id": str(tenant_id),
             "iat": now,
             "exp": now + timedelta(minutes=5),
         },
@@ -533,14 +538,24 @@ def test_keycloak_principal_sets_rls_context_before_membership_lookup(monkeypatc
     monkeypatch.setattr(auth, "_jwks_client", lambda _url: JwksClient())
 
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
-    # Resolve the principal using the same restricted role as the application,
-    # not the schema-owner connection used to prepare the fixture.
     rls_factory = build_session_factory(APP_DATABASE_URL or DATABASE_URL)
     try:
         with rls_factory() as session, session.begin():
-            principal = auth.get_current_principal(credentials, session, x_tenant_id=None)
-            assert principal.user_id == user_id
-            assert principal.tenant_id == tenant_id
+            principal_a = auth.get_current_principal(
+                credentials, session, x_tenant_id=str(tenant_a)
+            )
+            principal_b = auth.get_current_principal(
+                credentials, session, x_tenant_id=str(tenant_b)
+            )
+            assert principal_a.user_id == principal_b.user_id == user_id
+            assert principal_a.tenant_id == tenant_a
+            assert principal_a.membership_role == "member"
+            assert principal_b.tenant_id == tenant_b
+            assert principal_b.membership_role == "tenant_admin"
+            with pytest.raises(Exception):
+                auth.get_current_principal(
+                    credentials, session, x_tenant_id=str(tenant_forbidden)
+                )
     finally:
         factory.kw["bind"].dispose()
         rls_factory.kw["bind"].dispose()
