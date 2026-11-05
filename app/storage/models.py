@@ -641,3 +641,60 @@ class Evidence(Base):
     reference_uri: Mapped[str | None] = mapped_column(String(2000))
     created_by: Mapped[UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SystemAdminGrant(Base, TimestampMixin):
+    """A global PEA permission grant, independent from tenant membership roles."""
+
+    __tablename__ = "system_admin_grants"
+    __table_args__ = (
+        CheckConstraint(
+            "permission IN ('system.audit.read','system.roadmap.read','system.tenants.read',"
+            "'system.tenants.manage','system.admins.manage')",
+            name="ck_system_admin_grants_permission",
+        ),
+        CheckConstraint("status IN ('active','revoked')", name="ck_system_admin_grants_status"),
+        UniqueConstraint("user_id", "permission", name="uq_system_admin_grants_user_permission"),
+        Index("ix_system_admin_grants_user_status", "user_id", "status"),
+        ForeignKeyConstraint(["user_id"], ["users.id"], name="fk_system_admin_grants_user"),
+        ForeignKeyConstraint(["granted_by"], ["users.id"], name="fk_system_admin_grants_granted_by"),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    permission: Mapped[str] = mapped_column(String(100), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    granted_by: Mapped[UUID | None] = mapped_column(Uuid)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class SystemAuditEvent(Base):
+    """Append-only platform-wide audit event, separate from tenant audit events."""
+
+    __tablename__ = "system_audit_events"
+    __table_args__ = (
+        CheckConstraint(
+            "outcome IN ('success','denied','failure')",
+            name="ck_system_audit_events_outcome",
+        ),
+        Index("ix_system_audit_events_created", "created_at"),
+        Index("ix_system_audit_events_tenant_created", "tenant_id", "created_at"),
+        Index("ix_system_audit_events_target", "target_type", "target_id"),
+        ForeignKeyConstraint(
+            ["actor_user_id"], ["users.id"],
+            name="fk_system_audit_events_actor", ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id"], ["tenants.id"],
+            name="fk_system_audit_events_tenant", ondelete="SET NULL",
+        ),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    actor_user_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    action: Mapped[str] = mapped_column(String(120), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    target_id: Mapped[UUID | None] = mapped_column(Uuid)
+    tenant_id: Mapped[UUID | None] = mapped_column(Uuid)
+    request_id: Mapped[str | None] = mapped_column(String(100))
+    outcome: Mapped[str] = mapped_column(String(30), nullable=False)
+    details: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
