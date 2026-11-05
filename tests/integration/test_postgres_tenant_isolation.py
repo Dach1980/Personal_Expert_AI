@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, select, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from app.api import auth
-from app.storage.database import build_session_factory, set_tenant_context
+from app.storage.database import build_session_factory, set_tenant_context, set_user_context
 from app.storage.file_store import LocalFileStore, StorageIntegrityError
 from app.storage.models import (
     AuditEvent,
@@ -23,6 +23,8 @@ from app.storage.models import (
     Membership,
     Project,
     Review,
+    SystemAdminGrant,
+    SystemAuditEvent,
     Tenant,
     User,
 )
@@ -659,3 +661,79 @@ def test_identity_context_discovers_only_own_tenants_without_active_tenant(conne
                             VALUES (:id, :tenant, :user, 'member', 'active')"""),
                     {"id": uuid4(), "tenant": tenant_a, "user": user_id},
                 )
+
+
+
+def test_system_admin_grants_gate_global_tenant_and_audit_reads(connection):
+    if not APP_DATABASE_URL:
+        pytest.skip("APP_DATABASE_URL restricted role is required for system-admin RLS verification")
+
+    admin_id, ordinary_id = uuid4(), uuid4()
+    tenant_a, tenant_b = uuid4(), uuid4()
+    owner_factory = build_session_factory(OWNER_DATABASE_URL or DATABASE_URL)
+    app_factory = build_session_factory(APP_DATABASE_URL)
+    event_id = uuid4()
+    try:
+        with owner_factory() as session, session.begin():
+            session.add_all([
+                User(id=admin_id, login=f"system-admin-{admin_id}@test.local", status="active"),
+                User(id=ordinary_id, login=f"ordinary-{ordinary_id}@test.local", status="active"),
+                Tenant(id=tenant_a, name="Admin-visible A", status="active"),
+                Tenant(id=tenant_b, name="Admin-visible B", status="active"),
+            ])
+            session.flush()
+            session.add_all([
+                SystemAdminGrant(
+                    id=uuid4(), user_id=admin_id, permission="system.audit.read",
+                    status="active", reason="integration test",
+                ),
+                SystemAdminGrant(
+                    id=uuid4(), user_id=admin_id, permission="system.tenants.read",
+                    status="active", reason="integration test",
+                ),
+            ])
+
+        with app_factory() as session, session.begin():
+            set_user_context(session, admin_id)
+            permissions = set(session.scalars(
+                select(SystemAdminGrant.permission)
+            ).all())
+            assert permissions == {"system.audit.read", "system.tenants.read"}
+
+            visible_tenants = set(session.scalars(select(Tenant.id)).all())
+            assert visible_tenants == {tenant_a, tenant_b}
+
+            session.add(SystemAuditEvent(
+                id=event_id,
+                actor_user_id=admin_id,
+                action="system.test",
+                target_type="tenant",
+                target_id=tenant_a,
+                tenant_id=tenant_a,
+                outcome="success",
+                details={"test": True},
+            ))
+            session.flush()
+            assert session.scalar(
+                select(SystemAuditEvent.id).where(SystemAuditEvent.id == event_id)
+            ) == event_id
+
+            update_result = session.execute(
+                text("UPDATE system_audit_events SET action = 'tampered' WHERE id = :id"),
+                {"id": event_id},
+            )
+            delete_result = session.execute(
+                text("DELETE FROM system_audit_events WHERE id = :id"),
+                {"id": event_id},
+            )
+            assert update_result.rowcount == 0
+            assert delete_result.rowcount == 0
+
+        with app_factory() as session, session.begin():
+            set_user_context(session, ordinary_id)
+            assert session.scalars(select(SystemAdminGrant.id)).all() == []
+            assert session.scalars(select(SystemAuditEvent.id)).all() == []
+            assert session.scalars(select(Tenant.id)).all() == []
+    finally:
+        owner_factory.kw["bind"].dispose()
+        app_factory.kw["bind"].dispose()
