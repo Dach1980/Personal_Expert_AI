@@ -41,7 +41,7 @@ The approved safe direction is:
 
 Keycloak Standard Token Exchange V2 may be used where a real user subject token exists and a narrower target audience/scope is needed. It is not the scheduled-task delegation mechanism.
 
-The repository-level findings and implementation sequence are recorded in [Keycloak delegation audit 2026-11-05](KEYCLOAK_DELEGATION_AUDIT_2026-11-05.md). The actual Stack-managed Keycloak version and live realm/client settings still require runtime inspection.
+The repository-level findings and implementation sequence are recorded in [Keycloak delegation audit 2026-11-05](KEYCLOAK_DELEGATION_AUDIT_2026-11-05.md). The actual Stack-managed Keycloak version and live realm/client settings still require runtime inspection. The implemented PEA-side binding/grant schema and internal API are described in [PEA Bionic scheduled retrieval](PEA_BIONIC_SCHEDULED_RETRIEVAL.md).
 
 ## Token validation requirements in PEA
 
