@@ -187,7 +187,7 @@ def get_current_principal(
             Tenant.status == "active",
         )
     )
-    if tenant is None:
+    if tenant is None or tenant.status != "active":
         raise HTTPException(status_code=404, detail="Tenant not found")
 
     return Principal(
