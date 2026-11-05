@@ -1,6 +1,7 @@
 """Authentication boundary for Keycloak-issued access tokens."""
 import os
 from dataclasses import dataclass
+from typing import Annotated
 from functools import lru_cache
 from uuid import UUID
 
@@ -142,7 +143,7 @@ def get_current_identity(
 def get_current_principal(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
     session: Session = Depends(get_session),
-    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-ID"),
+    x_tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
 ) -> Principal:
     """Authenticate and revalidate the selected tenant membership on every request."""
     identity = _resolve_identity(credentials, session)
