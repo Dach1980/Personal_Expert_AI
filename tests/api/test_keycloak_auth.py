@@ -149,9 +149,13 @@ def test_session_endpoint_returns_identity_without_selecting_tenant():
         login="test-user",
     )
 
+    class Session:
+        def scalar(self, _statement):
+            return user
+
     result = get_session_info(
         identity=SimpleNamespace(user_id=user_id),
-        session=Session([user]),
+        session=Session(),
     )
 
     assert result.user_id == user_id
