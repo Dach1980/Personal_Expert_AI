@@ -24,7 +24,7 @@
 
 ## Архитектурные документы
 
-Согласованная целевая архитектура продукта и границы ответственности компонентов: [Target Architecture](docs/architecture/TARGET_ARCHITECTURE.md). План backend/документного ядра: [Roadmap](docs/development/ROADMAP.md). Межрепозиторный план Web + Bionic + PEA: [Implementation Roadmap 2026-11-04](docs/development/IMPLEMENTATION_ROADMAP_2026-11-04.md).
+Согласованная целевая архитектура продукта и границы ответственности компонентов: [Target Architecture](docs/architecture/TARGET_ARCHITECTURE.md). План backend/документного ядра: [Roadmap](docs/development/ROADMAP.md). Межрепозиторный план Web + Bionic + PEA: [Implementation Roadmap 2026-11-04](docs/development/IMPLEMENTATION_ROADMAP_2026-11-04.md). Текущий статус retrieval API и оставшихся Agent Runtime задач: [Implementation Status 2026-11-05](docs/development/IMPLEMENTATION_STATUS_2026-11-05.md).
 
 Полный комплект целевых требований и спецификаций находится в [docs/architecture](docs/architecture/OVERVIEW.md):
 
