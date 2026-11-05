@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.storage.database import get_session, set_tenant_context, set_user_context
-from app.storage.models import ExternalIdentity, Membership, Tenant, User
+from app.storage.models import ExternalIdentity, Membership, SystemAdminGrant, Tenant, User
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -35,6 +35,14 @@ class Principal:
     user_id: UUID
     tenant_id: UUID
     membership_role: str
+
+
+@dataclass(frozen=True)
+class SystemAdminPrincipal:
+    """Verified identity with one or more active global PEA permissions."""
+
+    user_id: UUID
+    permissions: tuple[str, ...]
 
 
 @lru_cache(maxsize=4)
@@ -187,3 +195,46 @@ def get_current_principal(
         tenant_id=selected_tenant_id,
         membership_role=membership.role,
     )
+
+
+
+def get_current_system_admin(
+    identity: AuthenticatedIdentity = Depends(get_current_identity),
+    session: Session = Depends(get_session),
+) -> SystemAdminPrincipal:
+    """Require at least one active, database-backed PEA system permission."""
+    permissions = tuple(
+        session.scalars(
+            select(SystemAdminGrant.permission).where(
+                SystemAdminGrant.user_id == identity.user_id,
+                SystemAdminGrant.status == "active",
+            ).order_by(SystemAdminGrant.permission)
+        ).all()
+    )
+    if not permissions:
+        raise HTTPException(status_code=403, detail="System administrator permission required")
+    return SystemAdminPrincipal(user_id=identity.user_id, permissions=permissions)
+
+
+def require_system_permission(permission: str):
+    """Build a dependency that checks one exact active PEA system permission."""
+
+    def dependency(
+        identity: AuthenticatedIdentity = Depends(get_current_identity),
+        session: Session = Depends(get_session),
+    ) -> AuthenticatedIdentity:
+        grant_id = session.scalar(
+            select(SystemAdminGrant.id).where(
+                SystemAdminGrant.user_id == identity.user_id,
+                SystemAdminGrant.permission == permission,
+                SystemAdminGrant.status == "active",
+            )
+        )
+        if grant_id is None:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Missing system permission: {permission}",
+            )
+        return identity
+
+    return dependency
