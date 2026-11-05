@@ -86,7 +86,7 @@ class SessionRead(BaseModel):
     authenticated: bool = True
     user_id: UUID = Field(alias="userId")
     display_name: str | None = Field(alias="displayName")
-    tenant_id: UUID = Field(alias="tenantId")
+    tenant_id: UUID | None = Field(default=None, alias="tenantId")
 
 
 class TenantRead(BaseModel):
