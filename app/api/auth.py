@@ -45,6 +45,14 @@ class SystemAdminPrincipal:
     permissions: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class WorkloadPrincipal:
+    """A confidential, allowlisted service client authenticated by Keycloak."""
+
+    client_id: str
+    subject: str
+
+
 @lru_cache(maxsize=4)
 def _jwks_client(url: str) -> PyJWKClient:
     return PyJWKClient(url, cache_jwk_set=True, lifespan=300, timeout=5)
@@ -238,3 +246,28 @@ def require_system_permission(permission: str):
         return identity
 
     return dependency
+
+
+
+def get_current_workload(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+) -> WorkloadPrincipal:
+    """Authenticate the single configured Bionic workload client, not a human user."""
+    expected_client_id = os.getenv("PEA_WORKLOAD_CLIENT_ID", "").strip()
+    if not expected_client_id:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="PEA workload authentication is not configured",
+        )
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Bearer token required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    claims = _decode_keycloak_token(credentials.credentials)
+    client_id = claims.get("azp")
+    subject = claims.get("sub")
+    if client_id != expected_client_id or not isinstance(subject, str) or not subject:
+        raise _unauthorized("Workload client is not authorized")
+    return WorkloadPrincipal(client_id=client_id, subject=subject)
