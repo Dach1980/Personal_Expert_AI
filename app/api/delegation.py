@@ -92,6 +92,13 @@ class DelegationGrantRevoked(BaseModel):
     status: str
 
 
+class BionicDelegationIssueRequest(BaseModel):
+    bionic_project_id: int = Field(gt=0)
+    bionic_task_id: int = Field(gt=0)
+    owner_subject: str = Field(min_length=1, max_length=255)
+    ttl_seconds: int = Field(default=3600, ge=60, le=604800)
+
+
 class BionicRetrievalRequest(BaseModel):
     grant_token: str = Field(min_length=32, max_length=128)
     bionic_project_id: int = Field(gt=0)
@@ -415,3 +422,100 @@ def bionic_delegated_search(
         principal=principal,
         session=session,
     )
+
+@router.post(
+    "/internal/bionic/delegation-grants",
+    response_model=DelegationGrantIssued,
+    status_code=status.HTTP_201_CREATED,
+    tags=["internal"],
+)
+def issue_bionic_delegation_grant(
+    payload: BionicDelegationIssueRequest,
+    workload: WorkloadPrincipal = Depends(get_current_workload),
+    session: Session = Depends(get_session),
+) -> DelegationGrantIssued:
+    """Issue a task-bound search grant for an owner verified by Bionic's workload."""
+    instance = _bionic_instance()
+    set_bionic_workload_context(session)
+    binding = session.scalar(
+        select(BionicProjectBinding).where(
+            BionicProjectBinding.bionic_instance == instance,
+            BionicProjectBinding.bionic_project_id == payload.bionic_project_id,
+            BionicProjectBinding.status == "active",
+        )
+    )
+    if binding is None:
+        raise HTTPException(status_code=409, detail="No active Bionic project binding exists")
+
+    issuer = os.getenv("OIDC_ISSUER", "").rstrip("/")
+    if not issuer:
+        raise HTTPException(status_code=503, detail="PEA OIDC issuer is not configured")
+    external_identity = session.scalar(
+        select(ExternalIdentity).where(
+            ExternalIdentity.issuer == issuer,
+            ExternalIdentity.subject == payload.owner_subject,
+            ExternalIdentity.status == "active",
+        )
+    )
+    if external_identity is None:
+        raise HTTPException(status_code=403, detail="Bionic task owner is not provisioned in PEA")
+
+    set_user_context(session, external_identity.user_id)
+    set_tenant_context(session, binding.tenant_id)
+    owner = session.scalar(
+        select(User).where(User.id == external_identity.user_id, User.status == "active")
+    )
+    membership = session.scalar(
+        select(Membership).where(
+            Membership.tenant_id == binding.tenant_id,
+            Membership.user_id == external_identity.user_id,
+            Membership.status == "active",
+        )
+    )
+    if owner is None or membership is None:
+        raise HTTPException(status_code=403, detail="Bionic task owner has no active PEA tenant membership")
+    try:
+        ProjectService(session).get(
+            binding.tenant_id, binding.project_id, external_identity.user_id
+        )
+    except ResourceNotFoundError:
+        raise HTTPException(status_code=403, detail="Bionic task owner has no access to the bound PEA project") from None
+
+    token = secrets.token_urlsafe(32)
+    now = datetime.now(UTC)
+    expires_at = now + timedelta(seconds=payload.ttl_seconds)
+    grant = DelegationGrant(
+        id=uuid4(),
+        binding_id=binding.id,
+        tenant_id=binding.tenant_id,
+        project_id=binding.project_id,
+        owner_user_id=external_identity.user_id,
+        bionic_task_id=payload.bionic_task_id,
+        token_hash=hashlib.sha256(token.encode("utf-8")).hexdigest(),
+        operation="search",
+        status="active",
+        expires_at=expires_at,
+        created_at=now,
+    )
+    session.add(grant)
+    session.add(
+        AuditEvent(
+            id=uuid4(),
+            tenant_id=binding.tenant_id,
+            actor_user_id=external_identity.user_id,
+            action="delegation_grant.created_by_bionic",
+            target_type="delegation_grant",
+            target_id=grant.id,
+            outcome="success",
+            details={
+                "bionic_instance": instance,
+                "bionic_project_id": payload.bionic_project_id,
+                "bionic_task_id": payload.bionic_task_id,
+                "owner_subject": payload.owner_subject,
+                "operation": "search",
+                "expires_at": expires_at.isoformat(),
+            },
+        )
+    )
+    session.flush()
+    return DelegationGrantIssued(id=grant.id, token=token, expires_at=expires_at)
