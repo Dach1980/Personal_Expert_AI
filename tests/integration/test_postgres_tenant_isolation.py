@@ -23,12 +23,14 @@ from app.storage.models import (
     Finding,
     Membership,
     Project,
+    ProjectMembership,
     Review,
     SystemAdminGrant,
     SystemAuditEvent,
     Tenant,
     User,
 )
+from app.storage.services import ProjectService, ResourceNotFoundError
 from app.storage.upload_service import DocumentUploadService, UploadAccessDenied, UploadConflict
 
 OWNER_DATABASE_URL = os.getenv("DATABASE_URL")
@@ -484,6 +486,7 @@ def test_document_read_service_isolates_projects_within_one_tenant(connection):
 def test_keycloak_principal_switches_between_active_tenants_without_jwt_tenant_claim(monkeypatch):
     """One verified identity can select only its own active tenants under RLS."""
     tenant_a, tenant_b, tenant_forbidden, user_id = uuid4(), uuid4(), uuid4(), uuid4()
+    project_a, project_b = uuid4(), uuid4()
     issuer = "https://sso.integration.test/realms/pea"
     subject = f"subject-{uuid4()}"
     factory = build_session_factory(OWNER_DATABASE_URL or DATABASE_URL)
@@ -511,6 +514,20 @@ def test_keycloak_principal_switches_between_active_tenants_without_jwt_tenant_c
                 user_id=user_id, status="active",
             )
         )
+        session.add_all([
+            Project(
+                id=project_a, tenant_id=tenant_a, name="Tenant A project",
+                status="active", project_metadata={},
+            ),
+            Project(
+                id=project_b, tenant_id=tenant_b, name="Tenant B project",
+                status="active", project_metadata={},
+            ),
+            ProjectMembership(
+                id=uuid4(), tenant_id=tenant_a, project_id=project_a,
+                user_id=user_id, role="engineer", status="active",
+            ),
+        ])
 
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     now = datetime.now(UTC)
@@ -553,6 +570,12 @@ def test_keycloak_principal_switches_between_active_tenants_without_jwt_tenant_c
             assert principal_a.membership_role == "member"
             assert principal_b.tenant_id == tenant_b
             assert principal_b.membership_role == "tenant_admin"
+            projects_a = ProjectService(session).list(tenant_a, user_id)
+            projects_b = ProjectService(session).list(tenant_b, user_id)
+            assert [project.id for project in projects_a] == [project_a]
+            assert [project.id for project in projects_b] == [project_b]
+            with pytest.raises(ResourceNotFoundError):
+                ProjectService(session).list(tenant_forbidden, user_id)
             with pytest.raises(HTTPException) as denied:
                 auth.get_current_principal(
                     credentials, session, x_tenant_id=str(tenant_forbidden)
