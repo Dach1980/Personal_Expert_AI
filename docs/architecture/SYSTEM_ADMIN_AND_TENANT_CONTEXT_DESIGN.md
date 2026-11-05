@@ -166,12 +166,25 @@ A user may read only their own system grant rows for /admin/me. A system audit e
 
 ## 6. Implementation order
 
-1. [x] Add SystemAdminGrant and SystemAuditEvent ORM models, Alembic migration, separate RLS policies and metadata unit tests. PostgreSQL CI migration/schema parity and full test gates are running; do not mark the gate passed until the latest main commit is green.
-2. [ ] Implement identity-only authentication context and membership discovery; preserve legacy tenant claim compatibility.
-3. [ ] Implement selected-tenant validation and X-Tenant-ID; add cross-tenant negative tests.
-4. [ ] Add system-admin permission dependencies and read-only API endpoints.
-5. [ ] Update OpenAPI/API contract docs and integration status.
-6. [ ] Integrate Web tenant selector and protected Audit & Roadmap only after backend contracts and tests pass.
-7. [ ] Update Bionic adapter to forward selected tenant selector while retaining independent token validation; add adapter contract tests.
+1. [x] Add SystemAdminGrant and SystemAuditEvent ORM models, Alembic migrations, RLS policies and metadata unit tests. Migration/schema parity passed on commit e7f60f85; subsequent full integration tests are in progress.
+2. [x] Implement identity-only authentication context, optional legacy tenant claim and GET /api/v1/tenants membership discovery.
+3. [x] Implement X-Tenant-ID selection with per-request active-membership validation and identity-scoped RLS. Full cross-tenant PostgreSQL negative tests are running.
+4. [x] Implement database-backed system permission dependencies and read-only GET /api/v1/admin/me, /api/v1/admin/audit-events and /api/v1/admin/tenants endpoints.
+5. [ ] Complete CI, migration downgrade/re-upgrade, schema parity and all authorization/RLS tests on the latest main commit; publish final OpenAPI/API contract snapshot.
+6. [ ] Integrate Web tenant selector and protected Audit & Roadmap only after backend tests pass and an initial system-admin grant is provisioned out-of-band.
+7. [ ] Update Bionic adapter to forward X-Tenant-ID while retaining independent token validation; add adapter contract tests.
 
 No frontend-only admin visibility or tenant switch is accepted as complete until the corresponding PEA endpoint and negative authorization tests pass.
+
+
+## Implementation update — 2026-11-05
+
+The first backend implementation slice now exists in main:
+
+- SystemAdminGrant and SystemAuditEvent models plus revisions 0012 and 0014.
+- Revision 0013 adds identity-scoped discovery policies only to memberships and tenants. Other tenant-owned tables remain tenant-context isolated.
+- Authentication is split into AuthenticatedIdentity and tenant-bound Principal. The verified ExternalIdentity mapping sets app.user_id; selected tenant membership is checked before app.tenant_id is set.
+- GET /api/v1/tenants lists only the caller's active memberships. X-Tenant-ID is an untrusted selector and is revalidated on every request; legacy tenant_id claim remains a compatibility fallback.
+- System permissions are loaded from PEA grants, not Keycloak roles or frontend flags. Read-only admin endpoints expose the caller's permissions, global audit events and tenant inventory.
+- No system-admin grants have been provisioned yet. Provisioning remains out-of-band; therefore the admin endpoints correctly deny all users until a grant is explicitly created.
+- CI found and drove fixes for ORM/migration JSONB parity, FastAPI Header default handling, backward-compatible Principal test fixtures and inactive-tenant status validation. Do not treat earlier intermediate failures as the final result; the latest main run is the acceptance target.
