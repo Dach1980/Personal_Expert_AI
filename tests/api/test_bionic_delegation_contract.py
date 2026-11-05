@@ -2,10 +2,10 @@ import pytest
 from pydantic import ValidationError
 
 from app.api.delegation import (
-    BionicDelegationIssueRequest,
-    BionicRetrievalRequest,
-    BionicDelegationRevokeRequest,
     BindingCreate,
+    BionicDelegationIssueRequest,
+    BionicDelegationRevokeRequest,
+    BionicRetrievalRequest,
 )
 
 
