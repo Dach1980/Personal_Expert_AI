@@ -145,6 +145,55 @@ def main() -> int:
             scope_uuid = matches[0]["id"]
         print("Created pea-api-context client scope.")
 
+    # Confidential service identity for the Bionic scheduled worker.
+    # It uses client_credentials only; no password grant, browser login or impersonation.
+    worker_client = json.loads(
+        (ROOT / "infra/keycloak/pea-bionic-worker-client.json").read_text(encoding="utf-8")
+    )
+    status, _, worker_clients = admin.request(
+        "GET", f"{realm_path}/clients?clientId=pea-bionic-worker"
+    )
+    require_success(status, {200}, "Find pea-bionic-worker client", worker_clients)
+    if worker_clients:
+        worker_uuid = worker_clients[0]["id"]
+        worker_client["id"] = worker_uuid
+        status, _, body = admin.request(
+            "PUT", f"{realm_path}/clients/{worker_uuid}", worker_client
+        )
+        require_success(status, {204}, "Update pea-bionic-worker client", body)
+        print("Updated confidential pea-bionic-worker client.")
+    else:
+        status, _, body = admin.request("POST", f"{realm_path}/clients", worker_client)
+        require_success(status, {201}, "Create pea-bionic-worker client", body)
+        status, _, worker_clients = admin.request(
+            "GET", f"{realm_path}/clients?clientId=pea-bionic-worker"
+        )
+        require_success(status, {200}, "Resolve pea-bionic-worker client", worker_clients)
+        if not worker_clients:
+            raise RuntimeError("Created pea-bionic-worker client could not be resolved.")
+        worker_uuid = worker_clients[0]["id"]
+        print("Created confidential pea-bionic-worker client.")
+
+    status, _, worker_scopes = admin.request(
+        "GET", f"{realm_path}/clients/{worker_uuid}/default-client-scopes"
+    )
+    require_success(status, {200}, "List worker default client scopes", worker_scopes)
+    if any(scope["id"] == scope_uuid for scope in worker_scopes):
+        print("pea-api-context is already a default scope for pea-bionic-worker.")
+    else:
+        status, _, body = admin.request(
+            "PUT", f"{realm_path}/clients/{worker_uuid}/default-client-scopes/{scope_uuid}"
+        )
+        require_success(status, {204}, "Attach PEA API audience to worker client", body)
+        print("Attached pea-api-context as a default scope for pea-bionic-worker.")
+
+    print(
+        "IMPORTANT: configure/rotate the pea-bionic-worker client secret in the "
+        "deployment secret store. The secret is never printed or committed."
+    )
+    print("Set PEA_WORKLOAD_CLIENT_ID=pea-bionic-worker in PEA and Bionic.")
+    print("Set PEA_WORKLOAD_CLIENT_SECRET only in Bionic's secret store.")
+
     status, _, bionic_clients = admin.request(
         "GET", f"{realm_path}/clients?clientId={quote(bionic_client_id, safe='')}"
     )
