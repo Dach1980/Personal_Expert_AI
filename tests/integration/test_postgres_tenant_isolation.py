@@ -9,7 +9,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import create_engine, select, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from app.api import auth
 from app.storage.database import build_session_factory, set_tenant_context
@@ -652,7 +652,7 @@ def test_identity_context_discovers_only_own_tenants_without_active_tenant(conne
         assert set(visible_tenants) == {tenant_a, tenant_b}
 
         # Identity context alone must not grant writes to tenant-owned rows.
-        with pytest.raises(Exception):
+        with pytest.raises(DBAPIError):
             with connection.begin_nested():
                 connection.execute(
                     text("""INSERT INTO memberships (id, tenant_id, user_id, role, status)
