@@ -70,3 +70,20 @@ The following cannot be established from the Git repositories and must be checke
 - the actual PEA database state and whether any Bionic↔PEA project bindings exist.
 
 Until these are verified, do not add runtime token-exchange calls, create a service client with guessed settings, or enable impersonation.
+
+
+## Implementation update — 2026-11-05
+
+The safe repository implementation has now started on `main`:
+
+- PEA migration `0015_bionic_retrieval_delegation` adds `bionic_project_bindings` and `delegation_grants`, with composite project/tenant foreign keys, token-hash uniqueness, operation/status/expiry checks and RLS policies.
+- PEA has an exact `azp` allowlist for the confidential `pea-bionic-worker` client.
+- PEA provides administrator-only binding management, owner-bound grant issuance/revocation and an internal delegated search endpoint. Each search rechecks the grant, Bionic task/project identity, Keycloak owner `sub`, active user, tenant membership and project access.
+- The Keycloak setup script now provisions the confidential worker client with service accounts enabled, browser/password flows disabled and the PEA audience scope attached. The secret is not printed or committed.
+- Bionic scheduled runtime obtains a workload token using client credentials, requests a short-lived task grant and exposes `pea_search` only when the server-created retrieval context exists. The model can provide only query and top_k.
+- The old interactive SSE chat remains on its original tool catalog and does not receive `pea_search`.
+- The PEA PostgreSQL 16 database-integrity CI passed after the new schema/API implementation. Bionic Rust CI is being extended to compile/test `tool-runtime` and `cron`; its final result is still pending.
+
+This is deliberately **not** Keycloak user impersonation. Standard Token Exchange V2 is not used to fabricate a scheduled user's identity. The scheduled worker authenticates as its own confidential service client; PEA then uses its own stored external identity mapping and current authorization records to decide whether the task owner may search the bound project.
+
+Still outstanding: inspect the actual Stack-managed Keycloak version and realm, configure the live worker secret, set PEA workload environment, apply migration 0015 to the deployed PEA database, create an explicit project binding and perform live scheduled-task E2E. Repository contents alone cannot prove those deployment facts.
