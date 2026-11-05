@@ -383,6 +383,19 @@ def bionic_delegated_search(
     )
     if owner is None or membership is None:
         raise HTTPException(status_code=403, detail="Grant owner no longer has tenant access")
+    issuer = os.getenv("OIDC_ISSUER", "").rstrip("/")
+    if not issuer:
+        raise HTTPException(status_code=503, detail="PEA OIDC issuer is not configured")
+    owner_identity = session.scalar(
+        select(ExternalIdentity).where(
+            ExternalIdentity.user_id == grant.owner_user_id,
+            ExternalIdentity.issuer == issuer,
+            ExternalIdentity.subject == payload.owner_subject,
+            ExternalIdentity.status == "active",
+        )
+    )
+    if owner_identity is None:
+        raise HTTPException(status_code=403, detail="Bionic task owner does not match the delegation owner")
     try:
         ProjectService(session).get(grant.tenant_id, grant.project_id, grant.owner_user_id)
     except ResourceNotFoundError:
