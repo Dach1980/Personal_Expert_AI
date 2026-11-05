@@ -1,8 +1,8 @@
 """Authentication boundary for Keycloak-issued access tokens."""
 import os
 from dataclasses import dataclass
-from typing import Annotated
 from functools import lru_cache
+from typing import Annotated
 from uuid import UUID
 
 import jwt
