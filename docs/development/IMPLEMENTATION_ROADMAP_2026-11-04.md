@@ -161,8 +161,8 @@ Personal Expert AI считается рабочим продуктом, ког�
 - Web frontend workflow: [41961641314](https://github.com/Dach1980/Personal_Expert_AI_Web/actions/runs/41961641314) and [41961641688](https://github.com/Dach1980/Personal_Expert_AI_Web/actions/runs/41961641688) — SUCCESS on UX change set.
 
 ### Not implemented / not runtime-accepted
-- [ ] Server-side admin RBAC and persistent cross-repository audit history. Do not render a client-only admin tab before the PEA authorization endpoint exists.
-- [ ] Multi-tenant membership discovery and secure tenant context switching. Current signed token supplies one tenant_id and PEA enforces exact match.
+- [ ] Server-side admin RBAC and persistent cross-repository audit history. The first PEA ORM/migration/RLS data-model slice is now committed; permission dependencies and admin API are not yet implemented. Do not render a client-only admin tab before the PEA authorization endpoint exists.
+- [ ] Multi-tenant membership discovery and secure tenant context switching. Current request authentication still enforces one tenant_id; the identity-only discovery and X-Tenant-ID validation contract is documented but not yet implemented.
 - [ ] Conversation rename/archive/search API and adapter support; current UI supports list/select/create only.
 - [ ] Real Keycloak gateway login, token refresh/revocation and browser E2E.
 - [ ] Model-facing pea_search Agent Runtime tool, verified-token propagation, ACL-before-prompt, citation allowlist and retrieval regression tests.
@@ -177,3 +177,11 @@ Personal Expert AI считается рабочим продуктом, ког�
 5. Complete Keycloak trusted-gateway live acceptance.
 6. Implement PEA retrieval tool in Bionic Agent Runtime and evidence-grounded chat tests.
 7. Build fork-specific Bionic image and run integrated security/E2E acceptance.
+
+### PEA security foundation update — 2026-11-05
+
+- Added [system-admin and tenant-context design contract](../architecture/SYSTEM_ADMIN_AND_TENANT_CONTEXT_DESIGN.md).
+- Added separate SystemAdminGrant and SystemAuditEvent SQLAlchemy models and Alembic revision 0012_system_admin_audit on main.
+- Added RLS policies for own-grant discovery and actor-bound append-only global audit insertion; global audit reads require an active system.audit.read grant.
+- Added ORM metadata tests for global grants/audit schema and updated the security model to describe the actual RS256/JWKS implementation.
+- Backend API, identity-only membership discovery, selected tenant validation, permission dependencies and negative authorization tests remain outstanding. The migration/schema/full-test CI is being checked against the latest main commit; no acceptance claim is made until it completes successfully.
