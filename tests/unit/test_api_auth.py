@@ -182,3 +182,28 @@ def test_missing_oidc_configuration_fails_closed(monkeypatch):
             x_tenant_id=None,
         )
     assert error.value.status_code == 503
+
+
+
+def test_identity_authentication_does_not_require_tenant_claim(monkeypatch):
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    _configure_oidc(monkeypatch, private_key)
+    user_id = uuid4()
+    session = Mock()
+    session.scalar.side_effect = [
+        SimpleNamespace(user_id=user_id),
+        SimpleNamespace(id=user_id, status="active"),
+    ]
+
+    identity = auth.get_current_identity(
+        HTTPAuthorizationCredentials(
+            scheme="Bearer",
+            credentials=_token(private_key),
+        ),
+        session,
+    )
+
+    assert identity.user_id == user_id
+    assert identity.legacy_tenant_id is None
+    auth.set_user_context.assert_called_once_with(session, user_id)
+    auth.set_tenant_context.assert_not_called()
