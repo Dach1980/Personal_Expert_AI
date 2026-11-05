@@ -91,17 +91,17 @@ router = APIRouter(prefix="/api/v1", tags=["workspace"])
 
 @router.get("/session", response_model=SessionRead)
 def get_session_info(
-    principal: Principal = Depends(get_current_principal),
+    identity: AuthenticatedIdentity = Depends(get_current_identity),
     session: Session = Depends(get_session),
 ):
-    """Expose the already-verified principal to a trusted browser API gateway."""
-    user = session.scalar(select(User).where(User.id == principal.user_id, User.status == "active"))
+    """Expose verified identity before the browser selects an authorized tenant."""
+    user = session.scalar(select(User).where(User.id == identity.user_id, User.status == "active"))
     if user is None:
         raise HTTPException(status_code=401, detail="User is inactive or unknown")
     return SessionRead(
-        userId=principal.user_id,
+        userId=identity.user_id,
         displayName=user.display_name or user.login,
-        tenantId=principal.tenant_id,
+        tenantId=None,
     )
 
 
