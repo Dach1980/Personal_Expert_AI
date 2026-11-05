@@ -113,3 +113,30 @@ The Bionic server must use `PEA_WEB_ORIGIN` with the same exact origin for CORS.
 
 Provision each person explicitly in PEA with `scripts/provision_oidc_identity.py` and create the corresponding active tenant/project memberships. The Keycloak `tenant_id` attribute is a routing context claim only; it does not grant PEA access by itself. Never automatically attach a first-time user to a tenant based only on email or an untrusted browser parameter.
 
+
+
+## 7. Confidential Bionic scheduled-worker client
+
+The setup script also creates/updates a separate confidential client:
+
+- Client ID: `pea-bionic-worker`
+- Client authentication: client secret
+- Service accounts: enabled
+- Standard browser flow: disabled
+- Direct access/password grant: disabled
+- Impersonation: not enabled
+- Default client scope: `pea-api-context`, which supplies the `pea-api` audience
+
+This client is **not** the `pea-api` resource/audience client, the public `pea-web` client, or Bionic's browser-login `oauth2-proxy` client. Do not reuse their credentials.
+
+After running the setup script, open the Keycloak admin console, select **Clients → pea-bionic-worker → Credentials**, generate/rotate its client secret and place it only in the Bionic deployment secret store. Never commit it or paste it into chat. Configure:
+
+- Bionic secret: `PEA_WORKLOAD_CLIENT_SECRET`;
+- Bionic and PEA allowlist: `PEA_WORKLOAD_CLIENT_ID=pea-bionic-worker`;
+- both deployments: the same stable `PEA_BIONIC_INSTANCE_ID`, e.g. `bionic-primary`.
+
+The service obtains an access token with the OAuth2 client-credentials grant and calls PEA's private internal retrieval endpoint. PEA validates the token signature, issuer, audience and exact `azp` client ID. It then resolves the PEA-owned delegation grant and rechecks the human owner's current tenant/project permissions.
+
+This is **workload authentication, not user impersonation**. Do not enable Keycloak Legacy Token Exchange V1, direct naked impersonation, or arbitrary subject impersonation. Standard Token Exchange V2 may be used only when a real user subject token exists and a narrower target token is needed; it does not create a scheduled user's identity from Bionic's database row.
+
+The PEA delegation token is generated per scheduled task, returned once, stored by Bionic as a task secret, and persisted in PEA only as a SHA-256 hash. It is bound to one Bionic project, one task, one PEA tenant/project, one owner and the `search` operation. PEA rejects missing, mismatched, expired, revoked or unauthorized grants. The Bionic server must create/store the grant only after verifying the caller owns the scheduled task; it must never expose the grant token as a model tool argument.
