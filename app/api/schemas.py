@@ -281,3 +281,23 @@ class ReviewStatusUpdate(BaseModel):
 
 class FindingStatusUpdate(BaseModel):
     status: str = Field(pattern="^(open|accepted|rejected|resolved|waived)$")
+
+
+
+class SystemAdminMeRead(BaseModel):
+    user_id: UUID
+    permissions: list[str]
+
+
+class SystemAuditEventRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    actor_user_id: UUID
+    action: str
+    target_type: str
+    target_id: UUID | None
+    tenant_id: UUID | None
+    request_id: str | None
+    outcome: str
+    details: dict[str, object]
+    created_at: datetime
