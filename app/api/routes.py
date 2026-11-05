@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, select, update
+from sqlalchemy import and_, func, select, update
 from sqlalchemy.orm import Session
 
 from app.api.auth import Principal, get_current_principal
@@ -31,6 +31,9 @@ from app.api.schemas import (
     ReviewCreate,
     ReviewRead,
     ReviewStatusUpdate,
+    SearchRequest,
+    SearchResponse,
+    SearchResult,
     SessionRead,
     SourceFragmentRead,
     TenantRead,
@@ -43,6 +46,7 @@ from app.storage.models import (
     AuditEvent,
     ChatConversation,
     ChatMessage,
+    Document,
     DocumentVersion,
     Evidence,
     Finding,
@@ -97,6 +101,87 @@ def list_current_user_projects(
         return ProjectService(session).list(principal.tenant_id, principal.user_id)
     except ResourceNotFoundError:
         raise HTTPException(status_code=404, detail="Tenant not found") from None
+
+
+@router.post(
+    "/tenants/{tenant_id}/projects/{project_id}/search",
+    response_model=SearchResponse,
+    tags=["search"],
+)
+def search_project_sources(
+    tenant_id: UUID,
+    project_id: UUID,
+    payload: SearchRequest,
+    principal: Principal = Depends(get_current_principal),
+    session: Session = Depends(get_session),
+):
+    """Search only source fragments visible in the verified tenant/project context."""
+    _check_tenant(tenant_id, principal)
+    try:
+        ProjectService(session).get(tenant_id, project_id, principal.user_id)
+    except ResourceNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found") from None
+
+    set_tenant_context(session, tenant_id)
+    escaped = payload.query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    pattern = f"%{escaped}%"
+    statement = (
+        select(SourceFragment, DocumentVersion, Document)
+        .join(
+            DocumentVersion,
+            and_(
+                DocumentVersion.tenant_id == SourceFragment.tenant_id,
+                DocumentVersion.project_id == SourceFragment.project_id,
+                DocumentVersion.id == SourceFragment.document_version_id,
+            ),
+        )
+        .join(
+            Document,
+            and_(
+                Document.tenant_id == SourceFragment.tenant_id,
+                Document.project_id == SourceFragment.project_id,
+                Document.id == DocumentVersion.document_id,
+            ),
+        )
+        .where(
+            SourceFragment.tenant_id == tenant_id,
+            SourceFragment.project_id == project_id,
+            SourceFragment.content.is_not(None),
+            SourceFragment.content.ilike(pattern, escape="\\"),
+        )
+    )
+    if payload.filters.document_types:
+        statement = statement.where(Document.document_type.in_(payload.filters.document_types))
+    if payload.filters.version_state == "current":
+        statement = statement.where(Document.current_version_id == DocumentVersion.id)
+
+    rows = session.execute(
+        statement.order_by(SourceFragment.created_at.desc(), SourceFragment.id)
+        .limit(payload.top_k + 1)
+    ).all()
+    truncated = len(rows) > payload.top_k
+    results = []
+    query_lower = payload.query.casefold()
+    for fragment, version, document in rows[:payload.top_k]:
+        text = fragment.content or ""
+        match_at = text.casefold().find(query_lower)
+        start = max(0, match_at - 400) if match_at >= 0 else 0
+        excerpt = text[start : start + 1200]
+        results.append(
+            SearchResult(
+                fragment_id=fragment.id,
+                document_id=document.id,
+                document_version_id=version.id,
+                document_title=document.title,
+                document_type=document.document_type,
+                original_filename=version.original_filename,
+                fragment_type=fragment.fragment_type,
+                locator=fragment.locator,
+                excerpt=excerpt,
+                content_hash=fragment.content_hash,
+            )
+        )
+    return SearchResponse(query=payload.query, results=results, truncated=truncated)
 
 
 @router.get("/tenants/{tenant_id}", response_model=TenantRead)
