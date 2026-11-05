@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.api import auth
+from app.api.auth import AuthenticatedIdentity
 
 
 def _token(private_key, tenant_id=None) -> str:
@@ -207,3 +208,71 @@ def test_identity_authentication_does_not_require_tenant_claim(monkeypatch):
     assert identity.legacy_tenant_id is None
     auth.set_user_context.assert_called_once_with(session, user_id)
     auth.set_tenant_context.assert_not_called()
+
+
+
+def test_system_admin_requires_at_least_one_active_permission():
+    identity = AuthenticatedIdentity(
+        user_id=uuid4(),
+        issuer="https://sso.example.test/realms/pea",
+        subject="subject",
+    )
+    session = Mock()
+    session.scalars.return_value.all.return_value = ["system.audit.read"]
+
+    admin = auth.get_current_system_admin(identity=identity, session=session)
+
+    assert admin.user_id == identity.user_id
+    assert admin.permissions == ("system.audit.read",)
+
+
+def test_system_admin_without_grants_is_denied():
+    identity = AuthenticatedIdentity(
+        user_id=uuid4(),
+        issuer="https://sso.example.test/realms/pea",
+        subject="subject",
+    )
+    session = Mock()
+    session.scalars.return_value.all.return_value = []
+
+    with pytest.raises(HTTPException) as error:
+        auth.get_current_system_admin(identity=identity, session=session)
+
+    assert error.value.status_code == 403
+
+
+def test_system_permission_is_checked_independently():
+    identity = AuthenticatedIdentity(
+        user_id=uuid4(),
+        issuer="https://sso.example.test/realms/pea",
+        subject="subject",
+    )
+    session = Mock()
+    session.scalar.return_value = uuid4()
+
+    result = auth.require_system_permission("system.tenants.read")(
+        identity=identity,
+        session=session,
+    )
+
+    assert result == identity
+    statement = session.scalar.call_args.args[0]
+    assert "system.tenants.read" in str(statement)
+
+
+def test_missing_system_permission_is_denied():
+    identity = AuthenticatedIdentity(
+        user_id=uuid4(),
+        issuer="https://sso.example.test/realms/pea",
+        subject="subject",
+    )
+    session = Mock()
+    session.scalar.return_value = None
+
+    with pytest.raises(HTTPException) as error:
+        auth.require_system_permission("system.audit.read")(
+            identity=identity,
+            session=session,
+        )
+
+    assert error.value.status_code == 403
