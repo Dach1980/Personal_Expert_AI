@@ -102,6 +102,14 @@ class BionicDelegationIssueRequest(BaseModel):
     ttl_seconds: int = Field(default=3600, ge=60, le=604800)
 
 
+class BionicDelegationRevokeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    grant_token: str = Field(min_length=32, max_length=128)
+    bionic_project_id: int = Field(gt=0)
+    bionic_task_id: int = Field(gt=0)
+    owner_subject: str = Field(min_length=1, max_length=255)
+
+
 class BionicRetrievalRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     grant_token: str = Field(min_length=32, max_length=128)
@@ -523,3 +531,72 @@ def issue_bionic_delegation_grant(
     )
     session.flush()
     return DelegationGrantIssued(id=grant.id, token=token, expires_at=expires_at)
+
+@router.post(
+    "/internal/bionic/delegation-grants/{grant_id}/revoke",
+    response_model=DelegationGrantRevoked,
+    tags=["internal"],
+)
+def revoke_bionic_delegation_grant(
+    grant_id: UUID,
+    payload: BionicDelegationRevokeRequest,
+    workload: WorkloadPrincipal = Depends(get_current_workload),
+    session: Session = Depends(get_session),
+) -> DelegationGrantRevoked:
+    """Let the authenticated worker revoke only the exact grant for its task."""
+    instance = _bionic_instance()
+    set_bionic_workload_context(session)
+    token_hash = hashlib.sha256(payload.grant_token.encode("utf-8")).hexdigest()
+    grant = session.scalar(
+        select(DelegationGrant).where(
+            DelegationGrant.id == grant_id,
+            DelegationGrant.token_hash == token_hash,
+            DelegationGrant.bionic_task_id == payload.bionic_task_id,
+        )
+    )
+    if grant is None:
+        raise HTTPException(status_code=404, detail="Delegation grant not found")
+    binding = session.scalar(
+        select(BionicProjectBinding).where(
+            BionicProjectBinding.id == grant.binding_id,
+            BionicProjectBinding.bionic_instance == instance,
+            BionicProjectBinding.bionic_project_id == payload.bionic_project_id,
+            BionicProjectBinding.tenant_id == grant.tenant_id,
+            BionicProjectBinding.project_id == grant.project_id,
+        )
+    )
+    if binding is None:
+        raise HTTPException(status_code=404, detail="Delegation grant not found")
+    issuer = os.getenv("OIDC_ISSUER", "").rstrip("/")
+    external_identity = session.scalar(
+        select(ExternalIdentity).where(
+            ExternalIdentity.user_id == grant.owner_user_id,
+            ExternalIdentity.issuer == issuer,
+            ExternalIdentity.subject == payload.owner_subject,
+            ExternalIdentity.status == "active",
+        )
+    )
+    if external_identity is None:
+        raise HTTPException(status_code=403, detail="Delegation owner mismatch")
+    if grant.status == "active":
+        grant.status = "revoked" if grant.expires_at > datetime.now(UTC) else "expired"
+        grant.revoked_at = datetime.now(UTC) if grant.status == "revoked" else None
+        set_user_context(session, grant.owner_user_id)
+        set_tenant_context(session, grant.tenant_id)
+        session.add(
+            AuditEvent(
+                id=uuid4(),
+                tenant_id=grant.tenant_id,
+                actor_user_id=grant.owner_user_id,
+                action="delegation_grant.revoked_by_bionic",
+                target_type="delegation_grant",
+                target_id=grant.id,
+                outcome="success",
+                details={
+                    "bionic_project_id": payload.bionic_project_id,
+                    "bionic_task_id": payload.bionic_task_id,
+                },
+            )
+        )
+        session.flush()
+    return DelegationGrantRevoked(id=grant.id, status=grant.status)
