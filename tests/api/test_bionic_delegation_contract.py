@@ -4,6 +4,7 @@ from pydantic import ValidationError
 from app.api.delegation import (
     BionicDelegationIssueRequest,
     BionicRetrievalRequest,
+    BionicDelegationRevokeRequest,
     BindingCreate,
 )
 
@@ -36,4 +37,16 @@ def test_binding_payload_cannot_override_bionic_instance() -> None:
             tenant_id="00000000-0000-0000-0000-000000000001",
             project_id="00000000-0000-0000-0000-000000000002",
             bionic_instance="attacker-instance",
+        )
+
+
+
+def test_bionic_revoke_payload_rejects_project_substitution_fields() -> None:
+    with pytest.raises(ValidationError):
+        BionicDelegationRevokeRequest(
+            grant_token="x" * 40,
+            bionic_project_id=12,
+            bionic_task_id=34,
+            owner_subject="trusted-subject",
+            tenant_id="00000000-0000-0000-0000-000000000001",
         )
