@@ -536,7 +536,7 @@ def test_keycloak_principal_sets_rls_context_before_membership_lookup(monkeypatc
     rls_factory = build_session_factory(APP_DATABASE_URL or DATABASE_URL)
     try:
         with rls_factory() as session, session.begin():
-            principal = auth.get_current_principal(credentials, session)
+            principal = auth.get_current_principal(credentials, session, x_tenant_id=None)
             assert principal.user_id == user_id
             assert principal.tenant_id == tenant_id
     finally:
