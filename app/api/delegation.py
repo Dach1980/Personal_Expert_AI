@@ -402,7 +402,7 @@ def bionic_delegated_search(
     )
     if owner is None or membership is None:
         raise HTTPException(status_code=403, detail="Grant owner no longer has tenant access")
-    issuer = os.getenv("OIDC_ISSUER", "").rstrip("/")
+    issuer = os.getenv("OIDC_ISSUER", "")
     if not issuer:
         raise HTTPException(status_code=503, detail="PEA OIDC issuer is not configured")
     owner_identity = session.scalar(
