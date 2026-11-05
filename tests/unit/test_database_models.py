@@ -11,7 +11,7 @@ def test_initial_domain_tables_are_registered() -> None:
         "processing_runs", "processing_artifacts", "source_fragments",
         "knowledge_items", "knowledge_assertions", "conversations",
         "messages", "memory_entries", "audit_events", "upload_operations", "external_identities", "reviews", "findings", "evidence",
-        "chat_conversations", "chat_messages",
+        "chat_conversations", "chat_messages", "system_admin_grants", "system_audit_events",
     }
     assert expected == set(Base.metadata.tables)
 
@@ -120,3 +120,30 @@ def test_chat_conversations_and_messages_are_tenant_project_scoped() -> None:
     assert "fk_chat_conversations_creator_membership" in conversation_fks
     assert "fk_chat_messages_conversation_parent" in message_fks
     assert "fk_chat_messages_sender_membership" in message_fks
+
+
+
+def test_system_admin_grants_are_separate_from_tenant_membership_roles() -> None:
+    table = Base.metadata.tables["system_admin_grants"]
+    checks = {item.name for item in table.constraints if isinstance(item, CheckConstraint)}
+    uniques = {item.name for item in table.constraints if isinstance(item, UniqueConstraint)}
+    assert "ck_system_admin_grants_permission" in checks
+    assert "ck_system_admin_grants_status" in checks
+    assert "uq_system_admin_grants_user_permission" in uniques
+    assert "tenant_id" not in table.columns
+
+
+def test_system_audit_events_are_global_and_have_append_only_contract() -> None:
+    table = Base.metadata.tables["system_audit_events"]
+    checks = {item.name for item in table.constraints if isinstance(item, CheckConstraint)}
+    indexes = {item.name for item in table.indexes}
+    fks = {item.name: item for item in table.constraints if isinstance(item, ForeignKeyConstraint)}
+    assert "ck_system_audit_events_outcome" in checks
+    assert {"ix_system_audit_events_created", "ix_system_audit_events_tenant_created",
+            "ix_system_audit_events_target"} <= indexes
+    assert "fk_system_audit_events_actor" in fks
+    assert "fk_system_audit_events_tenant" in fks
+    assert table.columns["tenant_id"].nullable is True
+    assert table.columns["actor_user_id"].nullable is False
+    assert fks["fk_system_audit_events_actor"].ondelete == "RESTRICT"
+    assert fks["fk_system_audit_events_tenant"].ondelete == "SET NULL"
