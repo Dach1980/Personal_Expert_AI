@@ -158,6 +158,15 @@ def upgrade() -> None:
                   AND g.permission = 'system.integrations.manage'
                   AND g.status = 'active'
             )
+            OR (
+                tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid
+                AND EXISTS (
+                    SELECT 1 FROM memberships m
+                    WHERE m.tenant_id = bionic_project_bindings.tenant_id
+                      AND m.user_id = nullif(current_setting('app.user_id', true), '')::uuid
+                      AND m.status = 'active'
+                )
+            )
         )
     """)
     op.execute("""
