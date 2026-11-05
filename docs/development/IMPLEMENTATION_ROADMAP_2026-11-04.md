@@ -198,3 +198,14 @@ Implemented on main:
 - Unit and PostgreSQL integration tests cover own-membership discovery, cross-tenant visibility boundaries, admin grant permissions and append-only audit access. The latest CI is still running; final acceptance is pending.
 
 Important operational prerequisite: no initial system administrator has been granted permissions yet. The first grant must be provisioned out-of-band through a controlled operator procedure; no public self-grant endpoint exists.
+
+
+## Tenant switching and Audit & Roadmap delivery — 2026-11-05
+
+Source implementation committed to the three `main` branches:
+
+- **PEA:** `/api/v1/session` is identity-only; `/api/v1/tenants` lists active memberships; `X-Tenant-ID` selects context only after membership and active-tenant checks. Tests cover identity-only sessions and explicit tenant selection without a legacy JWT tenant claim.
+- **Bionic:** JWT validation accepts a Keycloak identity token without `tenant_id`; the claim remains optional legacy context. The adapter exposes tenant discovery and PEA admin read routes, derives upstream `X-Tenant-ID` from fixed tenant-scoped paths, and forwards it for JSON, SSE, upload and processing requests.
+- **Web:** tenant selector uses PEA memberships, remembers only a preferred UUID, clears tenant-dependent UI state on switch, and reloads projects in the selected scope. The protected Audit & Roadmap page reads PEA admin permissions, audit events and tenant inventory through Bionic. A unit test covers preferred-tenant selection and fallback.
+
+**Acceptance status:** source changes are committed; latest-commit CI is not yet verified in this execution, and live Keycloak/browser/Bionic/PostgreSQL E2E remains outstanding. Do not mark this stage fully accepted until the PostgreSQL 16 PEA suite, Bionic Rust tests, Web npm tests/build/deploy and cross-tenant runtime tests pass on the exact current commits. Initial system-admin grants must be provisioned out-of-band before the admin UI can appear for a user.
