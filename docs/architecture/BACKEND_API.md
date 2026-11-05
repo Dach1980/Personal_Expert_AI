@@ -92,7 +92,8 @@ UploadOperation хранит durable state machine и idempotency key. Посл�
 Подробности: [DOCUMENT_UPLOAD_AND_RECOVERY.md](DOCUMENT_UPLOAD_AND_RECOVERY.md).
 
 ### Поиск и знания
-- POST /api/v1/projects/{project_id}/search (legacy target path; tenant-scoped implemented route is `POST /api/v1/tenants/{tenant_id}/projects/{project_id}/search`)
+- POST /api/v1/tenants/{tenant_id}/projects/{project_id}/search — implemented tenant-scoped lexical search over SourceFragments.
+- POST /api/v1/projects/{project_id}/search — legacy target path; not implemented.
 - GET /api/v1/projects/{project_id}/knowledge
 - GET /api/v1/knowledge-items/{item_id}
 - GET /api/v1/source-fragments/{fragment_id}
