@@ -3,6 +3,8 @@
 Дата актуализации: 2026-11-05  
 Статус: план реализации, актуализируемый по фактическим CI и runtime результатам.
 
+Текущие отчёты выполнения на 2026-11-05: [PEA](IMPLEMENTATION_STATUS_2026-11-05.md) · [Web](https://github.com/Dach1980/Personal_Expert_AI_Web/blob/main/docs/IMPLEMENTATION_STATUS_2026-11-05.md) · [Bionic adapter](https://github.com/Dach1980/bionic-personal-expert-ai/blob/main/docs/integration/PEA_API_ADAPTER.md).
+
 ## Репозитории и ответственность
 
 | Репозиторий | Ответственность |
