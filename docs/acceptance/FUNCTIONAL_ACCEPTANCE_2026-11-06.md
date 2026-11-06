@@ -39,9 +39,9 @@ Workflow: https://github.com/Dach1980/Personal_Expert_AI/actions/runs/4212669786
 
 Workflow: https://github.com/Dach1980/Personal_Expert_AI_Web/actions/runs/42167427094
 
-- The previous run on the earlier revision passed the frontend protocol tests (10 passed), TypeScript build and Vite build.
+- Current revision passed frontend protocol tests (10 passed), TypeScript build, Vite build, deployment and published-site smoke test.
 - This revision includes a fail-closed tenant-switch state update: the new tenant is committed only after its authorized project/chat data has loaded; failure clears partially loaded data and does not persist the rejected tenant.
-- The current Pages workflow must complete before this revision is marked CI-green.
+- Web CI and Pages deployment are green on the inspected revision.
 - Browser acceptance already confirmed by the user on 2026-11-06: JS and CSS assets return HTTP 200, no JavaScript console errors, and the application interface renders.
 
 ### Bionic fork
