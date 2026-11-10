@@ -83,6 +83,39 @@ def test_provider_rejects_non_loopback_endpoints(url):
         LMStudioProvider(LMStudioConfig(base_url=url), client=FakeClient())
 
 
+def test_provider_allows_explicit_private_host():
+    provider = LMStudioProvider(
+        LMStudioConfig(
+            base_url="http://172.30.128.1:1234/v1",
+            allowed_hosts=("172.30.128.1",),
+        ),
+        client=FakeClient(),
+    )
+    assert provider.base_url == "http://172.30.128.1:1234/v1"
+
+
+def test_provider_rejects_private_host_not_in_allowlist():
+    with pytest.raises(ValueError, match="loopback"):
+        LMStudioProvider(
+            LMStudioConfig(
+                base_url="http://192.168.1.10:1234/v1",
+                allowed_hosts=("172.30.128.1",),
+            ),
+            client=FakeClient(),
+        )
+
+
+def test_provider_rejects_public_ip_even_if_allowlisted():
+    with pytest.raises(ValueError, match="private"):
+        LMStudioProvider(
+            LMStudioConfig(
+                base_url="http://8.8.8.8:1234/v1",
+                allowed_hosts=("8.8.8.8",),
+            ),
+            client=FakeClient(),
+        )
+
+
 def test_chat_completion_normalizes_response_and_usage():
     provider = LMStudioProvider(client=FakeClient())
     result = provider.chat_completion(

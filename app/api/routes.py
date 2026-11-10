@@ -1336,6 +1336,11 @@ def send_conversation_message(
                 base_url=os.getenv("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234/v1"),
                 api_key=os.getenv("LM_STUDIO_API_KEY", "lm-studio"),
                 timeout_seconds=float(os.getenv("LM_STUDIO_TIMEOUT_SECONDS", "180")),
+                allowed_hosts=tuple(
+                    host.strip()
+                    for host in os.getenv("LM_STUDIO_ALLOWED_HOSTS", "").split(",")
+                    if host.strip()
+                ),
             )
         )
     except (RuntimeError, ValueError):

@@ -24,23 +24,48 @@ class LMStudioConfig:
     api_key: str = "lm-studio"
     timeout_seconds: float = 120.0
     capabilities: ProviderCapabilities = ProviderCapabilities()
+    allowed_hosts: tuple[str, ...] = ()
 
 
-def _validate_local_base_url(value: str) -> str:
+def _validate_local_base_url(
+    value: str,
+    allowed_hosts: tuple[str, ...] = (),
+) -> str:
     parsed = urlparse(value)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ValueError("LM Studio base_url must be an absolute HTTP(S) URL")
     if parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise ValueError("LM Studio base_url must not contain credentials, query or fragment")
+
     host = parsed.hostname.casefold()
-    is_local = host == "localhost"
-    if not is_local:
+    if host == "localhost":
+        return value.rstrip("/")
+
+    try:
+        host_ip = ipaddress.ip_address(host)
+    except ValueError:
+        raise ValueError(
+            "LM Studio endpoint must use loopback or an explicitly allowed private IP"
+        ) from None
+
+    if host_ip.is_loopback:
+        return value.rstrip("/")
+
+    allowed = set()
+    for item in allowed_hosts:
         try:
-            is_local = ipaddress.ip_address(host).is_loopback
+            address = ipaddress.ip_address(item.strip())
         except ValueError:
-            is_local = False
-    if not is_local:
-        raise ValueError("LM Studio endpoint must use loopback; remote endpoints are disabled")
+            raise ValueError("Allowed LM Studio hosts must be IP addresses") from None
+        if not address.is_private:
+            raise ValueError("Allowed LM Studio hosts must be private IP addresses")
+        allowed.add(str(address))
+
+    if not host_ip.is_private or str(host_ip) not in allowed:
+        raise ValueError(
+            "LM Studio endpoint must use loopback or an explicitly allowed private IP"
+        )
+
     return value.rstrip("/")
 
 
@@ -69,7 +94,9 @@ class LMStudioProvider:
 
     def __init__(self, config: LMStudioConfig | None = None, *, client: Any | None = None) -> None:
         self.config = config or LMStudioConfig()
-        self.base_url = _validate_local_base_url(self.config.base_url)
+        self.base_url = _validate_local_base_url(
+            self.config.base_url, self.config.allowed_hosts
+        )
         self.capabilities = self.config.capabilities
         if client is None:
             try:
