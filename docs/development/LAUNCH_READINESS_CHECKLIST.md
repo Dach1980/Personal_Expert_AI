@@ -1,6 +1,6 @@
 # Launch Readiness Checklist — Personal Expert AI
 
-- Дата обновления: 2026-11-09
+- Дата обновления: 2026-11-11
 - Основной репозиторий: [Dach1980/Personal_Expert_AI](https://github.com/Dach1980/Personal_Expert_AI)
 - Рабочая ветка: `main`
 - Зафиксированный HEAD перед созданием этого файла: `ecebf6343f6d55a54edc922fa699062ed37bb6c6`
@@ -50,7 +50,7 @@
 | PEA-DB-02 | PEA выполняет реальный SQL-запрос через собственный SQLAlchemy engine/session | OPEN | — | Выполнить безопасный read-only запрос через конфигурацию приложения; не выводить DSN/секреты |
 | PEA-DB-03 | Alembic head соответствует ожидаемой схеме БД | OPEN | — | `alembic current`, `alembic check`; зафиксировать вывод без credentials |
 | PEA-DB-04 | Upgrade → schema parity → downgrade → re-upgrade на PostgreSQL 16 | PARTIAL | Исторически | Исторические CI: [41760466319](https://github.com/Dach1980/Personal_Expert_AI/actions/runs/41760466319), [41813394892](https://github.com/Dach1980/Personal_Expert_AI/actions/runs/41813394892). Не считать доказательством текущего HEAD |
-| PEA-DB-05 | Runtime DB role не SUPERUSER/BYPASSRLS; права минимальны | OPEN | — | Проверить role attributes и grants в целевом runtime |
+| PEA-DB-05 | Runtime DB role не SUPERUSER/BYPASSRLS; права минимальны | PARTIAL | 2026-11-11 | `app_runtime`: SUPERUSER=false, BYPASSRLS=false, CREATEDB=false, CREATEROLE=false. Полный аудит grants ещё не выполнен |
 | PEA-DB-06 | Backup и restore проверены на отдельном тестовом наборе | OPEN | — | Зафиксировать backup artifact, restore log и проверку данных |
 
 ### 3.2 RLS и авторизация PEA
@@ -106,7 +106,7 @@
 | ID | Проверка / результат | Статус | Дата проверки | Evidence / тест |
 |---|---|---|---|---|
 | LLM-01 | LM Studio provider abstraction и mock tests существуют | PARTIAL | По коду/историческому аудиту | `app/llm/lm_studio.py`, `tests/unit/test_lm_studio_provider.py` |
-| LLM-02 | Реальный локальный chat completion на выбранной модели | OPEN | — | Runtime smoke test; проверить русскоязычный ответ и точный model id |
+| LLM-02 | Реальный локальный chat completion на выбранной модели | DONE | 2026-11-11 | Реальный `LMStudioProvider.chat_completion`: модель `qwen/qwen3.5-9b`, ответ `PEA_LM_STUDIO_OK`; `health_check=True` |
 | LLM-03 | Streaming, cancellation, timeout и ошибки провайдера | OPEN | — | Provider/API integration tests |
 | LLM-04 | Cloud fallback выключен; незапланированные внешние запросы отсутствуют | OPEN | — | Config + network capture |
 | CHAT-01 | Пользователь создаёт conversation и видит историю | PARTIAL | API/UI код существует | Browser E2E на реальном backend |
@@ -186,3 +186,28 @@
 | 2026-11-09 | Создан исходный Launch Readiness Checklist | PEA HEAD `ecebf6343f6d55a54edc922fa699062ed37bb6c6`; локальные проверки инфраструктуры в сеансе 2026-11-09 |
 
 При каждом обновлении добавлять дату, точный commit SHA, URL workflow/E2E evidence и конкретный результат. Не заменять старые исторические evidence новыми статусами без повторной проверки.
+
+## 9. Локальный runtime smoke test — 2026-11-11
+
+Проверки выполнены в WSL Ubuntu на локальной машине. Это подтверждение работоспособности локальной инфраструктуры и прямой интеграции PEA LLM provider с LM Studio, но не полного пользовательского сценария.
+
+| Проверка | Результат | Подтверждение |
+|---|---|---|
+| Python environment | DONE | Python 3.12.16; FastAPI import OK |
+| PostgreSQL 16 | DONE | Контейнер `personal-expert-postgres` healthy |
+| Runtime database connection | DONE | Подключение через `APP_DATABASE_URL`; `current_database() = personal_expert`; `current_user = app_runtime`; `SELECT 1` → 1 |
+| Runtime role restrictions | DONE (role attributes) | `SUPERUSER=false`, `BYPASSRLS=false`, `CREATEDB=false`, `CREATEROLE=false`; полный аудит grants остаётся открытым |
+| PEA API startup | DONE | Uvicorn запущен на `127.0.0.1:8000` с временной подстановкой `APP_DATABASE_URL` в `DATABASE_URL` только для процесса; `.env` не изменялся |
+| PEA health endpoint | DONE | `GET /health` → HTTP 200, `{"status":"ok","service":"personal-expert-ai"}` |
+| PEA OpenAPI | DONE | `Personal Expert AI`; 35 paths |
+| LM Studio host connectivity | DONE | Из WSL получен список моделей через `http://172.30.128.1:1234/v1/models` |
+| Qwen direct completion | DONE | `qwen/qwen3.5-9b` вернула корректный русский ответ |
+| PEA LM Studio provider health | DONE | `LMStudioProvider.health_check()` → `True` |
+| PEA LM Studio provider chat completion | DONE | `LMStudioProvider.chat_completion()` вернул `PEA_LM_STUDIO_OK`; model `qwen/qwen3.5-9b`; latency около 2 секунд |
+| PEA SQLAlchemy application session/query | OPEN | Проверка подключения через отдельный SQLAlchemy engine выполнена; запрос через штатную сессию приложения ещё не принят |
+| PEA chat API + SSE + persistence | OPEN | Не выполнялся; маршрут сохраняет сообщения в PostgreSQL |
+| Browser login / project / document workflow | OPEN | Полный пользовательский E2E ещё не выполнялся |
+
+**Безопасность запуска:** API запущен с ограниченной ролью `app_runtime`; исходный `.env` не менялся. Миграции и интеграционные тесты на рабочей БД не запускались.
+
+**Граница приёмки:** этот этап подтверждает локальный запуск backend и реальную генерацию через PEA LLM adapter. Он не подтверждает RLS isolation, браузерную авторизацию, обработку документов, retrieval, citations или готовность к production.
