@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import io
 from pathlib import Path
+from unittest.mock import patch
+from urllib.error import HTTPError
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "scripts" / "configure_keycloak_realm.py"
 SPEC = importlib.util.spec_from_file_location("configure_keycloak_realm", MODULE_PATH)
@@ -144,3 +147,29 @@ def test_web_origins_must_not_contain_paths() -> None:
         pass
     else:
         raise AssertionError("Web origins with paths must be rejected.")
+
+
+
+def test_login_reports_oauth_error_code_without_leaking_description() -> None:
+    response = HTTPError(
+        url="http://localhost:30000/realms/master/protocol/openid-connect/token",
+        code=400,
+        msg="Bad Request",
+        hdrs=None,
+        fp=io.BytesIO(
+            b'{"error":"invalid_grant","error_description":"sensitive diagnostic text"}'
+        ),
+    )
+    admin = module.KeycloakAdmin("http://localhost:30000", "temp-admin", "secret")
+    with patch.object(module, "urlopen", side_effect=response):
+        try:
+            admin.login()
+        except module.ProvisioningError as exc:
+            message = str(exc)
+        else:
+            raise AssertionError("Authentication failure must raise ProvisioningError.")
+
+    assert "HTTP 400" in message
+    assert "invalid_grant" in message
+    assert "sensitive diagnostic text" not in message
+    assert "secret" not in message
