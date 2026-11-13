@@ -92,6 +92,15 @@ def test_existing_scope_with_wrong_tenant_mapper_is_a_blocker() -> None:
     assert any("user.attribute" in item for item in module.validate_scope(scope))
 
 
+def test_existing_scope_without_internal_id_blocks_preflight() -> None:
+    scope = valid_scope()
+    scope.pop("id")
+    plan = module.build_plan(
+        [], [scope], set(), ["https://example.test/callback"], ["https://example.test"]
+    )
+    assert any("no internal ID" in item for item in plan["blockers"])
+
+
 def test_duplicate_client_or_scope_names_block_preflight() -> None:
     plan = module.build_plan(
         [valid_api(), valid_api()],
