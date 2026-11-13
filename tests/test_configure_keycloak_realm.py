@@ -114,3 +114,23 @@ def test_base_url_rejects_legacy_path_prefix() -> None:
 
 def test_base_url_accepts_local_keycloak_origin() -> None:
     assert module.validate_base_url("http://localhost:30000/") == "http://localhost:30000"
+
+
+def test_web_allowlists_reject_wildcards() -> None:
+    try:
+        module.validate_web_allowlists(["https://example.test/*"], ["https://example.test"])
+    except module.ProvisioningError:
+        pass
+    else:
+        raise AssertionError("Wildcard redirect URIs must be rejected.")
+
+
+def test_web_origins_must_not_contain_paths() -> None:
+    try:
+        module.validate_web_allowlists(
+            ["https://example.test/callback"], ["https://example.test/app"]
+        )
+    except module.ProvisioningError:
+        pass
+    else:
+        raise AssertionError("Web origins with paths must be rejected.")
