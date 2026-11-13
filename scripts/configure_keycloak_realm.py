@@ -249,10 +249,25 @@ class KeycloakAdmin:
         try:
             with urlopen(request, timeout=15) as response:
                 payload = json.loads(response.read())
-        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+        except HTTPError as exc:
+            # Log only the OAuth error code, never the response description or credentials.
+            error_code = ""
+            try:
+                error_payload = json.loads(exc.read())
+                candidate = error_payload.get("error") if isinstance(error_payload, dict) else ""
+                if isinstance(candidate, str) and candidate.replace("_", "").replace("-", "").isalnum():
+                    error_code = candidate
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                pass
+            detail = f" OAuth error: {error_code}." if error_code else ""
             raise ProvisioningError(
-                "Keycloak admin authentication failed. Check the supplied credentials and "
-                "whether the admin-cli password grant is enabled. No realm changes were made."
+                f"Keycloak admin authentication failed (HTTP {exc.code}).{detail} "
+                "No realm changes were made."
+            ) from exc
+        except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+            raise ProvisioningError(
+                "Keycloak admin authentication request failed due to a connection or "
+                "response error. No realm changes were made."
             ) from exc
         token = payload.get("access_token")
         if not isinstance(token, str) or not token:
