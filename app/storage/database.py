@@ -29,6 +29,17 @@ def _default_session_factory() -> sessionmaker[Session]:
     return build_session_factory()
 
 
+def set_oidc_identity_context(session: Session, issuer: str, subject: str) -> None:
+    """Scope identity lookup to the issuer/subject pair from a verified OIDC token."""
+    session.execute(
+        text(
+            "SELECT set_config('app.oidc_issuer', :issuer, true), "
+            "set_config('app.oidc_subject', :subject, true)"
+        ),
+        {"issuer": issuer, "subject": subject},
+    )
+
+
 def set_user_context(session: Session, user_id: UUID) -> None:
     """Set transaction-local RLS identity after verified ExternalIdentity resolution."""
     session.execute(
@@ -64,4 +75,14 @@ def get_session() -> Generator[Session, None, None]:
             yield session
 
 
-__all__ = ["Base", "build_engine", "build_session_factory", "get_session", "get_session_factory", "set_bionic_workload_context", "set_tenant_context", "set_user_context"]
+__all__ = [
+    "Base",
+    "build_engine",
+    "build_session_factory",
+    "get_session",
+    "get_session_factory",
+    "set_bionic_workload_context",
+    "set_oidc_identity_context",
+    "set_tenant_context",
+    "set_user_context",
+]
