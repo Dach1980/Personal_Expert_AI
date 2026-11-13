@@ -51,6 +51,8 @@ jobs:
           GRANT CONNECT ON DATABASE personal_expert TO app_runtime;
           GRANT USAGE ON SCHEMA public TO app_runtime;
           GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_runtime;
+          REVOKE INSERT, UPDATE, DELETE ON TABLE users, external_identities FROM app_runtime;
+          REVOKE ALL ON TABLE alembic_version FROM app_runtime;
           SQL
       - name: Check ORM and database schema parity
         run: |
@@ -64,6 +66,8 @@ jobs:
         run: |
           psql "postgresql://personal_expert:personal_expert@localhost:5432/personal_expert" -v ON_ERROR_STOP=1 <<'SQL'
           GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_runtime;
+          REVOKE INSERT, UPDATE, DELETE ON TABLE users, external_identities FROM app_runtime;
+          REVOKE ALL ON TABLE alembic_version FROM app_runtime;
           SQL
       - name: Full test suite
         run: pytest -q
