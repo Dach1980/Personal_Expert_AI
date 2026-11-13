@@ -192,6 +192,10 @@ def build_plan(
         )
     elif scope_matches:
         scope = scope_matches[0]
+        if not scope.get("id"):
+            blockers.append(
+                "Existing pea-api-context scope has no internal ID; manual review is required."
+            )
 
     if api is not None:
         blockers.extend(validate_existing_client(api, EXPECTED_API, "pea-api"))
