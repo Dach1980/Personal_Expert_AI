@@ -30,6 +30,7 @@ def signing_keys(monkeypatch):
             return Key()
 
     monkeypatch.setattr(auth, "_jwks_client", lambda _url: Client())
+    monkeypatch.setattr(auth, "set_oidc_identity_context", lambda _session, _issuer, _subject: None)
     monkeypatch.setattr(auth, "set_user_context", lambda _session, _user_id: None)
     monkeypatch.setattr(auth, "set_tenant_context", lambda _session, _tenant_id: None)
     return private_key
