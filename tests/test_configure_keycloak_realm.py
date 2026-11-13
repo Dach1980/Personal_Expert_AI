@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import importlib.util
 from pathlib import Path
 
@@ -30,7 +31,7 @@ def valid_scope() -> dict:
         "name": "pea-api-context",
         "protocol": "openid-connect",
         "protocolMappers": [
-            {"name": name, "protocol": "openid-connect", **expected}
+            {"name": name, "protocol": "openid-connect", **copy.deepcopy(expected)}
             for name, expected in module.EXPECTED_MAPPERS.items()
         ],
     }
