@@ -47,6 +47,19 @@ def connection():
     engine.dispose()
 
 
+def _seed_users_as_owner(users):
+    """Seed identity rows through the schema-owner connection, never app_runtime."""
+    engine = create_engine(OWNER_DATABASE_URL or DATABASE_URL)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text("INSERT INTO users (id, login, status) VALUES (:id, :login, 'active')"),
+                [{"id": user_id, "login": login} for user_id, login in users],
+            )
+    finally:
+        engine.dispose()
+
+
 def _tenant(conn, tenant_id):
     conn.execute(text("SELECT set_config('app.tenant_id', :tenant, true)"), {"tenant": str(tenant_id)})
     conn.execute(
@@ -81,12 +94,9 @@ def test_rls_hides_rows_from_other_tenants(connection):
 def test_chat_conversations_and_messages_enforce_tenant_and_project_scope(connection):
     tenant_a, tenant_b = uuid4(), uuid4()
     user_id, project_a, project_b, conversation_id = uuid4(), uuid4(), uuid4(), uuid4()
+    _seed_users_as_owner([(user_id, f"{user_id}@example.test")])
     with connection.begin():
         _tenant(connection, tenant_a)
-        connection.execute(
-            text("INSERT INTO users (id, login, status) VALUES (:id, :login, 'active')"),
-            {"id": user_id, "login": f"{user_id}@example.test"},
-        )
         connection.execute(
             text("""INSERT INTO memberships (id, tenant_id, user_id, role, status)
                     VALUES (:id, :tenant, :user, 'member', 'active')"""),
@@ -244,12 +254,9 @@ def test_document_version_rejects_invalid_checksum_and_zero_size(connection):
 
 def _create_upload_fixture(connection):
     tenant_id, project_id, user_id, document_id = uuid4(), uuid4(), uuid4(), uuid4()
+    _seed_users_as_owner([(user_id, f"upload-{user_id}@test.local")])
     with connection.begin():
         _tenant(connection, tenant_id)
-        connection.execute(
-            text("INSERT INTO users (id, login, status) VALUES (:id, :login, 'active')"),
-            {"id": user_id, "login": f"upload-{user_id}@test.local"},
-        )
         connection.execute(
             text("""INSERT INTO memberships (id, tenant_id, user_id, role, status)
                     VALUES (:id, :tenant, :user, 'member', 'active')"""),
@@ -432,12 +439,9 @@ def test_document_read_service_isolates_projects_within_one_tenant(connection):
     tenant_id, user_id = uuid4(), uuid4()
     project_a, project_b = uuid4(), uuid4()
     document_a, document_b = uuid4(), uuid4()
+    _seed_users_as_owner([(user_id, f"reader-{user_id}@test.local")])
     with connection.begin():
         _tenant(connection, tenant_id)
-        connection.execute(
-            text("INSERT INTO users (id, login, status) VALUES (:id, :login, 'active')"),
-            {"id": user_id, "login": f"reader-{user_id}@test.local"},
-        )
         connection.execute(
             text("""INSERT INTO memberships (id, tenant_id, user_id, role, status)
                     VALUES (:id, :tenant, :user, 'member', 'active')"""),
@@ -659,14 +663,10 @@ def test_identity_context_discovers_only_own_tenants_without_active_tenant(conne
     user_id, other_user_id = uuid4(), uuid4()
     tenant_a, tenant_b = uuid4(), uuid4()
 
-    with connection.begin():
-        connection.execute(
-            text("INSERT INTO users (id, login, status) VALUES (:id, :login, 'active'), (:other, :other_login, 'active')"),
-            {
-                "id": user_id, "login": f"identity-{user_id}@test.local",
-                "other": other_user_id, "other_login": f"identity-{other_user_id}@test.local",
-            },
-        )
+    _seed_users_as_owner([
+        (user_id, f"identity-{user_id}@test.local"),
+        (other_user_id, f"identity-{other_user_id}@test.local"),
+    ])
 
     with connection.begin():
         _tenant(connection, tenant_a)
