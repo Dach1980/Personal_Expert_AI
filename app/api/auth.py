@@ -12,7 +12,12 @@ from jwt import PyJWKClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.storage.database import get_session, set_tenant_context, set_user_context
+from app.storage.database import (
+    get_session,
+    set_oidc_identity_context,
+    set_tenant_context,
+    set_user_context,
+)
 from app.storage.models import ExternalIdentity, Membership, SystemAdminGrant, Tenant, User
 
 bearer = HTTPBearer(auto_error=False)
@@ -118,6 +123,9 @@ def _resolve_identity(
         except (TypeError, ValueError):
             raise _unauthorized("Malformed legacy tenant claim") from None
 
+    # The JWT has already passed signature, issuer and audience validation.
+    # Scope the identity lookup to this exact verified OIDC issuer/subject pair.
+    set_oidc_identity_context(session, issuer, subject)
     external_identity = session.scalar(
         select(ExternalIdentity).where(
             ExternalIdentity.issuer == issuer,
@@ -128,6 +136,9 @@ def _resolve_identity(
     if external_identity is None:
         raise _unauthorized("External identity is not provisioned")
 
+    # Establish the mapped internal identity before querying the RLS-protected
+    # users row. The mapping itself is visible only in the verified OIDC context.
+    set_user_context(session, external_identity.user_id)
     user = session.scalar(
         select(User).where(
             User.id == external_identity.user_id,
@@ -136,10 +147,6 @@ def _resolve_identity(
     )
     if user is None:
         raise _unauthorized("Inactive or unknown user")
-
-    # This context is derived only from the verified ExternalIdentity mapping.
-    # RLS uses it solely for self-membership and self-grant discovery.
-    set_user_context(session, user.id)
     return AuthenticatedIdentity(
         user_id=user.id,
         issuer=issuer,
