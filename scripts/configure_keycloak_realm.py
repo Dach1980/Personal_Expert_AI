@@ -71,13 +71,54 @@ def parse_csv(value: str) -> list[str]:
 def validate_base_url(value: str) -> str:
     value = value.rstrip("/")
     parsed = urlparse(value)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise ProvisioningError("KEYCLOAK_BASE_URL must be an absolute HTTP(S) origin.")
+    if (
+        parsed.scheme not in {"http", "https"}
+        or not parsed.netloc
+        or parsed.username
+        or parsed.password
+    ):
+        raise ProvisioningError("KEYCLOAK_BASE_URL must be an absolute HTTP(S) origin without credentials.")
     if parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
         raise ProvisioningError(
             "KEYCLOAK_BASE_URL must be the Keycloak origin without a path, query or fragment."
         )
     return value
+
+
+def validate_web_allowlists(redirect_uris: list[str], web_origins: list[str]) -> None:
+    if not redirect_uris or not web_origins:
+        raise ProvisioningError("PEA Web redirect URI and origin allowlists must both be non-empty.")
+
+    for uri in redirect_uris:
+        parsed = urlparse(uri)
+        if (
+            "*" in uri
+            or parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.query
+            or parsed.fragment
+            or (parsed.scheme == "http" and parsed.hostname not in {"localhost", "127.0.0.1", "::1"})
+        ):
+            raise ProvisioningError(
+                "Every PEA_WEB_REDIRECT_URIS entry must be an exact HTTPS URL "
+                "(HTTP is allowed only for loopback development)."
+            )
+
+    for origin in web_origins:
+        parsed = urlparse(origin)
+        if (
+            "*" in origin
+            or parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.path not in {"", "/"}
+            or parsed.query
+            or parsed.fragment
+            or (parsed.scheme == "http" and parsed.hostname not in {"localhost", "127.0.0.1", "::1"})
+        ):
+            raise ProvisioningError(
+                "Every PEA_WEB_ORIGINS entry must be an exact origin without a path "
+                "(HTTP is allowed only for loopback development)."
+            )
 
 
 def validate_scope(scope: dict) -> list[str]:
@@ -403,6 +444,7 @@ def main(argv: list[str] | None = None) -> int:
         origins = parse_csv(os.getenv(
             "PEA_WEB_ORIGINS", "https://dach1980.github.io"
         ))
+        validate_web_allowlists(redirects, origins)
         templates = load_templates(redirects, origins)
         admin = KeycloakAdmin(base_url, username, password)
         discovery, plan, state = preflight(base_url, realm, admin, redirects, origins)
