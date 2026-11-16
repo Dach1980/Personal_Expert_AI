@@ -14,10 +14,21 @@ class ProjectCreate(BaseModel):
 
 
 class ProjectUpdate(BaseModel):
-    """Partial update for project description and AI instructions."""
+    """Partial update for project name, description, and AI instructions."""
 
+    name: str | None = Field(default=None, min_length=1, max_length=300)
     description: str | None = Field(default=None, max_length=20000)
     instructions: str | None = Field(default=None, max_length=20000)
+
+    @field_validator("name")
+    @classmethod
+    def name_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        value = value.strip()
+        if not value:
+            raise ValueError("Project name cannot be blank")
+        return value
 
 
 class ProjectRead(BaseModel):
