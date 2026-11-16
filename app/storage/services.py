@@ -135,7 +135,7 @@ class ProjectService:
         *,
         changes: dict[str, str | None],
     ) -> Project:
-        """Update project guidance for tenant admins or project managers."""
+        """Update project settings for tenant admins or project managers."""
         set_tenant_context(self.session, tenant_id)
         membership = self.tenants.active_membership(tenant_id, user_id)
         if membership is None:
@@ -153,10 +153,15 @@ class ProjectService:
             raise AccessDeniedError("Project manager or tenant administrator role is required")
 
         for field, value in changes.items():
-            if field not in {"description", "instructions"}:
+            if field not in {"name", "description", "instructions"}:
                 raise ValueError("Unsupported project field")
             normalized = value.strip() if value is not None else None
-            setattr(project, field, normalized or None)
+            if field == "name":
+                if not normalized:
+                    raise ValueError("Project name cannot be blank")
+                setattr(project, field, normalized)
+            else:
+                setattr(project, field, normalized or None)
 
         self.session.add(AuditEvent(
             id=uuid4(),
