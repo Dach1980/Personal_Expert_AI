@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
-from app.storage.models import Document, Project, Tenant, Workspace
+from app.storage.models import AuditEvent, Document, Project, Tenant, Workspace
 from app.storage.database import set_tenant_context
 from app.storage.repositories import DocumentRepository, ProjectRepository, TenantRepository
 
@@ -96,7 +96,7 @@ class ProjectService:
     def create(
         self, tenant_id: UUID, user_id: UUID, *, name: str,
         code: str | None = None, workspace_id: UUID | None = None,
-        description: str | None = None,
+        description: str | None = None, instructions: str | None = None,
     ) -> Project:
         set_tenant_context(self.session, tenant_id)
         membership = self.tenants.active_membership(tenant_id, user_id)
@@ -113,8 +113,8 @@ class ProjectService:
                 raise ResourceNotFoundError("Workspace not found in tenant")
         project = Project(
             id=uuid4(), tenant_id=tenant_id, workspace_id=workspace_id,
-            code=code, name=name, description=description, status="active",
-            project_metadata={},
+            code=code, name=name, description=description, instructions=instructions,
+            status="active", project_metadata={},
         )
         self.projects.add(project)
         from app.storage.models import ProjectMembership
@@ -124,6 +124,50 @@ class ProjectService:
                 user_id=user_id, role="project_manager", status="active",
             )
         )
+        self.session.flush()
+        return project
+
+    def update(
+        self,
+        tenant_id: UUID,
+        project_id: UUID,
+        user_id: UUID,
+        *,
+        changes: dict[str, str | None],
+    ) -> Project:
+        """Update project guidance for tenant admins or project managers."""
+        set_tenant_context(self.session, tenant_id)
+        membership = self.tenants.active_membership(tenant_id, user_id)
+        if membership is None:
+            raise ResourceNotFoundError("Project not found")
+        project = self.projects.get(tenant_id, project_id)
+        if project is None:
+            raise ResourceNotFoundError("Project not found")
+        allowed = membership.role in self.TENANT_ADMIN_ROLES
+        if not allowed:
+            project_membership = self.projects.active_membership(
+                tenant_id, project_id, user_id
+            )
+            allowed = project_membership is not None and project_membership.role == "project_manager"
+        if not allowed:
+            raise AccessDeniedError("Project manager or tenant administrator role is required")
+
+        for field, value in changes.items():
+            if field not in {"description", "instructions"}:
+                raise ValueError("Unsupported project field")
+            normalized = value.strip() if value is not None else None
+            setattr(project, field, normalized or None)
+
+        self.session.add(AuditEvent(
+            id=uuid4(),
+            tenant_id=tenant_id,
+            actor_user_id=user_id,
+            action="project.settings_updated",
+            target_type="project",
+            target_id=project.id,
+            outcome="success",
+            details={"changed_fields": sorted(changes)},
+        ))
         self.session.flush()
         return project
 

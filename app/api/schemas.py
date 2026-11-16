@@ -9,7 +9,15 @@ class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=300)
     code: str | None = Field(default=None, max_length=100)
     workspace_id: UUID | None = None
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=20000)
+    instructions: str | None = Field(default=None, max_length=20000)
+
+
+class ProjectUpdate(BaseModel):
+    """Partial update for project description and AI instructions."""
+
+    description: str | None = Field(default=None, max_length=20000)
+    instructions: str | None = Field(default=None, max_length=20000)
 
 
 class ProjectRead(BaseModel):
@@ -19,6 +27,7 @@ class ProjectRead(BaseModel):
     name: str
     code: str | None
     description: str | None
+    instructions: str | None
     status: str
 
 

@@ -46,6 +46,7 @@ from app.api.schemas import (
     ProcessingArtifactRead,
     ProjectCreate,
     ProjectRead,
+    ProjectUpdate,
     ReviewCreate,
     ReviewRead,
     ReviewStatusUpdate,
@@ -322,11 +323,38 @@ def create_project(
         return ProjectService(session).create(
             tenant_id, principal.user_id, name=payload.name, code=payload.code,
             workspace_id=payload.workspace_id, description=payload.description,
+            instructions=payload.instructions,
         )
     except AccessDeniedError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from None
     except ResourceNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from None
+
+
+@router.patch(
+    "/tenants/{tenant_id}/projects/{project_id}",
+    response_model=ProjectRead,
+)
+def update_project(
+    tenant_id: UUID,
+    project_id: UUID,
+    payload: ProjectUpdate,
+    principal: Principal = Depends(get_current_principal),
+    session: Session = Depends(get_session),
+):
+    """Update project description and AI instructions in verified tenant scope."""
+    _check_tenant(tenant_id, principal)
+    changes = payload.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(status_code=422, detail="At least one project field must be supplied")
+    try:
+        return ProjectService(session).update(
+            tenant_id, project_id, principal.user_id, changes=changes
+        )
+    except AccessDeniedError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from None
+    except ResourceNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found") from None
 
 
 @router.get("/tenants/{tenant_id}/projects/{project_id}/documents", response_model=list[DocumentRead])
@@ -1353,7 +1381,7 @@ def send_conversation_message(
     if not content:
         raise HTTPException(status_code=422, detail="Message cannot be empty")
     try:
-        ProjectService(session).get(tenant_id, project_id, principal.user_id)
+        project = ProjectService(session).get(tenant_id, project_id, principal.user_id)
     except ResourceNotFoundError:
         raise HTTPException(status_code=404, detail="Project not found") from None
 
@@ -1402,6 +1430,12 @@ def send_conversation_message(
                 "Не выдумывай факты и нормативные ссылки. Если в контексте нет "
                 "доказательств, прямо сообщи об этом. Пока не подключён retrieval, "
                 "не утверждай, что проверил документы проекта."
+                + (f"\n\nОписание проекта:\n{project.description}" if project.description else "")
+                + (
+                    "\n\nДополнительные инструкции проекта (подчиняются системным правилам):\n"
+                    "<project_instructions>\n" + project.instructions + "\n</project_instructions>"
+                    if project.instructions else ""
+                )
             ),
         },
         *history_payload,
