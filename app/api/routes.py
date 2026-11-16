@@ -342,7 +342,7 @@ def update_project(
     principal: Principal = Depends(get_current_principal),
     session: Session = Depends(get_session),
 ):
-    """Update project description and AI instructions in verified tenant scope."""
+    """Update project name, description, and AI instructions in verified tenant scope."""
     _check_tenant(tenant_id, principal)
     changes = payload.model_dump(exclude_unset=True)
     if not changes:
