@@ -24,7 +24,7 @@ class ProjectUpdate(BaseModel):
     @classmethod
     def name_must_not_be_blank(cls, value: str | None) -> str | None:
         if value is None:
-            return value
+            raise ValueError("Project name cannot be null")
         value = value.strip()
         if not value:
             raise ValueError("Project name cannot be blank")
